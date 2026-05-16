@@ -135,6 +135,28 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertNotIn('If Cash App blocks the browser', source)
         self.assertNotIn('send $20 to', source)
 
+    def test_userscript_mirrors_core_erotok_features(self):
+        source = Path("userscript/erotok.user.js").read_text(encoding="utf-8")
+
+        self.assertIn("// @name         EroTok Mini", source)
+        self.assertIn("// @match        https://www.erome.com/*", source)
+        self.assertIn("// @grant        GM_xmlhttpRequest", source)
+        self.assertIn("const FULL_APP_URL = 'http://127.0.0.1:3000/'", source)
+        self.assertIn("const GITHUB_URL = 'https://github.com/insomniakin/EromeAPI-main'", source)
+        self.assertIn("SUGGESTED_HASHTAGS", source)
+        self.assertIn("function parseHashtagInput", source)
+        self.assertIn("function searchQuery", source)
+        self.assertIn("function visibleAlbums", source)
+        self.assertIn("function downloadCurrentAlbum", source)
+        self.assertIn("/api/search", source)
+        self.assertIn("/api/explore", source)
+        self.assertIn("/api/profile", source)
+        self.assertIn("/api/download/jobs", source)
+        self.assertIn("Open full local app", source)
+        self.assertIn("Upgrade on GitHub", source)
+        self.assertIn("erotok-hide-terms", source)
+        self.assertIn("erotok-selected-tags", source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,6 +21,7 @@ EroTok is a local control panel and Python/Node toolkit for working with public 
 - Public profile watcher snapshots and diffs
 - SQLite-backed local watcher search index
 - Node API bridge for scripts and tools
+- Tampermonkey/Violentmonkey userscript mini panel that links back to the full GitHub version
 - Optional MCP and Hermes helper entrypoints
 
 ## Public Release Positioning
@@ -77,6 +78,7 @@ erome, local-first, python, nodejs, scraper, media-archive, watcher, sqlite, gui
 - [x] Runtime/download files ignored
 - [x] QR support image added as a local asset
 - [x] README screenshots captured and embedded
+- [x] Userscript mini panel added
 - [x] Tests passing locally
 - [x] Python syntax checked
 - [x] Node syntax checked

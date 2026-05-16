@@ -32,6 +32,7 @@ The project is designed for personal archiving, creator backups, public-page mon
 | Watcher | Public profile snapshots, diffs, alert text, history, and local search index |
 | API bridge | Node routes backed by Python methods for GUI, scripts, and automation |
 | MCP/Hermes helpers | Optional local entrypoints for agent/tooling workflows |
+| Userscript | Tampermonkey/Violentmonkey mini panel for Erome pages with a full-app upgrade link |
 
 ## Responsible Use
 
@@ -106,6 +107,38 @@ Selected hashtag chips are combined with typed search terms. The backend searche
 ### Hide Terms
 
 Hide keywords or hashtags are applied locally to visible albums. This is useful for excluding usernames, terms, tags, or titles from feed and preview workflows without changing the upstream query.
+
+## Userscript Mini Panel
+
+The repo includes a userscript edition at:
+
+```text
+userscript/erotok.user.js
+```
+
+Install it with Tampermonkey, Violentmonkey, or another compatible userscript manager. The script injects an `EroTok Mini` panel on public `https://www.erome.com/*` pages.
+
+What the userscript can do:
+
+- Search public albums through your local EroTok server
+- Load Explore results
+- Load the current public profile when you are on a profile page
+- Download the current public album page through the local server
+- Use suggested hashtag chips and multi-word hashtag parsing
+- Apply hide-term filtering to displayed userscript results
+- Persist mini-panel settings with userscript storage
+- Open the full local EroTok app at `http://127.0.0.1:3000/`
+- Link back to this GitHub repo for the full version
+
+The userscript intentionally delegates search, preview, and downloads to the local server. Browser userscripts cannot reliably save files, manage download jobs, or reuse the full Python/Node pipeline by themselves.
+
+Userscript flow:
+
+```bash
+node server.js
+```
+
+Then browse to a public Erome page. The `EroTok Mini` panel appears in the lower-right corner.
 
 ## Python API Example
 
@@ -280,6 +313,7 @@ api_bridge.py                  JSON bridge used by the Node server
 server.js                      Local Node server, GUI host, proxy, jobs, watcher routes
 ui.html                        EroTok browser control panel
 app/assets/cashapp-qr.jpg      Optional support QR displayed in the GUI
+userscript/erotok.user.js      Tampermonkey/Violentmonkey EroTok Mini panel
 watcher_*.py                   Root watcher entrypoints
 erome-watcher/                 Integrated watcher package and dashboard source
 tests/                         Python unittest coverage
