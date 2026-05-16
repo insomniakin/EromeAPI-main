@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Node](https://img.shields.io/badge/Node.js-local%20bridge-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-EroTok%20Control%20Panel-22D3EE?style=for-the-badge)
-![Tests](https://img.shields.io/badge/tests-36%20passing-34D399?style=for-the-badge)
+![Tests](https://img.shields.io/badge/tests-38%20passing-34D399?style=for-the-badge)
 ![Scope](https://img.shields.io/badge/scope-public%20pages%20only-818CF8?style=for-the-badge)
 
 EroTok is a local-first toolkit for exploring, previewing, indexing, watching, and archiving public Erome album pages that you are allowed to access. It combines a Python scraping/API layer, a Node.js bridge server, a browser-based control panel, profile watching, local SQLite search, and automation-friendly endpoints.
@@ -33,6 +33,7 @@ The project is designed for personal archiving, creator backups, public-page mon
 | API bridge | Node routes backed by Python methods for GUI, scripts, and automation |
 | MCP/Hermes helpers | Optional local entrypoints for agent/tooling workflows |
 | Userscript | Tampermonkey/Violentmonkey mini panel for Erome pages with a full-app upgrade link |
+| SleazyFork listing | Copy-ready userscript README with screenshots, QR, and required GUI/API install steps |
 
 ## Responsible Use
 
@@ -110,6 +111,8 @@ Hide keywords or hashtags are applied locally to visible albums. This is useful 
 
 ## Userscript Mini Panel
 
+Important: the GitHub GUI/API install is required before the userscript can search or download. EroTok Mini is a convenience panel for public Erome pages, and it delegates real work to the local server at `http://127.0.0.1:3000/`.
+
 The repo includes a userscript edition at:
 
 ```text
@@ -117,6 +120,12 @@ userscript/erotok.user.js
 ```
 
 Install it with Tampermonkey, Violentmonkey, or another compatible userscript manager. The script injects an `EroTok Mini` panel on public `https://www.erome.com/*` pages.
+
+For a SleazyFork-ready long description with raw screenshot links, QR image, and install steps, use:
+
+```text
+SLEAZYFORK_README.md
+```
 
 What the userscript can do:
 
@@ -132,9 +141,12 @@ What the userscript can do:
 
 The userscript intentionally delegates search, preview, and downloads to the local server. Browser userscripts cannot reliably save files, manage download jobs, or reuse the full Python/Node pipeline by themselves.
 
-Userscript flow:
+Required userscript flow:
 
 ```bash
+git clone https://github.com/insomniakin/EromeAPI-main.git
+cd EromeAPI-main
+pip install -r requirements.txt
 node server.js
 ```
 
@@ -313,6 +325,7 @@ api_bridge.py                  JSON bridge used by the Node server
 server.js                      Local Node server, GUI host, proxy, jobs, watcher routes
 ui.html                        EroTok browser control panel
 app/assets/cashapp-qr.jpg      Optional support QR displayed in the GUI
+SLEAZYFORK_README.md           Copy-ready SleazyFork userscript listing details
 userscript/erotok.user.js      Tampermonkey/Violentmonkey EroTok Mini panel
 watcher_*.py                   Root watcher entrypoints
 erome-watcher/                 Integrated watcher package and dashboard source
@@ -337,7 +350,7 @@ node --check server.js
 Current local verification:
 
 ```text
-36 tests passing
+38 tests passing
 ```
 
 ## Public Repository Safety

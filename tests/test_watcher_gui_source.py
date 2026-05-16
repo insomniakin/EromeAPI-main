@@ -157,6 +157,22 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn("erotok-hide-terms", source)
         self.assertIn("erotok-selected-tags", source)
 
+    def test_sleazyfork_readme_requires_local_gui_api_and_assets(self):
+        source = Path("SLEAZYFORK_README.md").read_text(encoding="utf-8")
+
+        self.assertIn("EroTok Mini - SleazyFork Listing README", source)
+        self.assertIn("Requires the local EroTok GUI/API from GitHub", source)
+        self.assertIn("https://github.com/insomniakin/EromeAPI-main", source)
+        self.assertIn("git clone https://github.com/insomniakin/EromeAPI-main.git", source)
+        self.assertIn("pip install -r requirements.txt", source)
+        self.assertIn("node server.js", source)
+        self.assertIn("http://127.0.0.1:3000", source)
+        self.assertIn("https://raw.githubusercontent.com/insomniakin/EromeAPI-main/main/docs/screenshots/erotok-control-panel.png", source)
+        self.assertIn("https://raw.githubusercontent.com/insomniakin/EromeAPI-main/main/docs/screenshots/erotok-controls.png", source)
+        self.assertIn("https://raw.githubusercontent.com/insomniakin/EromeAPI-main/main/app/assets/cashapp-qr.jpg", source)
+        self.assertIn("Raw install source", source)
+        self.assertIn("https://raw.githubusercontent.com/insomniakin/EromeAPI-main/main/userscript/erotok.user.js", source)
+
 
 if __name__ == "__main__":
     unittest.main()

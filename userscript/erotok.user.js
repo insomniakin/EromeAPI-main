@@ -1,10 +1,12 @@
 // ==UserScript==
 // @name         EroTok Mini
 // @namespace    https://github.com/insomniakin/EromeAPI-main
-// @version      0.1.0
-// @description  Local-first EroTok companion panel for public Erome pages. Uses your local EroTok server for search, preview, and downloads.
+// @version      0.1.1
+// @description  Requires the local EroTok GUI/API from GitHub. Adds an EroTok Mini panel for public Erome search, preview, and downloads.
 // @author       cjordanhot
 // @match        https://www.erome.com/*
+// @homepageURL  https://github.com/insomniakin/EromeAPI-main
+// @supportURL   https://github.com/insomniakin/EromeAPI-main/issues
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_xmlhttpRequest
@@ -377,7 +379,7 @@
     panel.querySelector('#erotok-upgrade').addEventListener('click', () => window.open(GITHUB_URL, '_blank', 'noopener,noreferrer'));
 
     renderHashtagChips();
-    setStatus('Ready. Start local server for downloads/search.', true);
+    setStatus('Requires local GUI/API. Start node server.js first.', true);
   }
 
   function injectPanel() {
