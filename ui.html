@@ -1,0 +1,2066 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EroTok GUI</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #121b2e;
+      --line: #25304a;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --brand: #22d3ee;
+      --accent: #818cf8;
+      --ok: #34d399;
+      --err: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Segoe UI, Arial, sans-serif;
+      background: radial-gradient(circle at top right, #172554, var(--bg) 40%);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+    }
+    /* Global layout modes */
+    body[data-layout="desktop"] .wrap { max-width: 1600px; grid-template-columns: 380px 1fr; }
+    body[data-layout="phone"] .wrap {
+      max-width: 440px;
+      grid-template-columns: 1fr;
+      padding: 12px;
+    }
+    body[data-layout="phone"] .feed-wrap {
+      aspect-ratio: 9 / 16;
+      height: auto;
+      max-height: calc(100vh - 80px);
+      margin: 0 auto;
+      border-radius: 28px;
+      border: 6px solid #1f2937;
+    }
+    body[data-layout="phone"] pre { max-height: 320px; }
+    .card {
+      background: rgba(18, 27, 46, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 16px 40px rgba(0,0,0,.25);
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    .brand {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .brand-logo-wrap {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(3, 6, 14, 0.95));
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35);
+      padding: 8px 10px;
+      overflow: hidden;
+    }
+    .brand-logo {
+      display: block;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 820 / 220;
+      object-fit: contain;
+      object-position: center;
+    }
+    .brand-title {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    .support-card {
+      display: grid;
+      gap: 10px;
+      justify-items: center;
+      width: 100%;
+      border: 1px solid rgba(34, 211, 238, 0.38);
+      border-radius: 12px;
+      background: rgba(34, 211, 238, 0.08);
+      padding: 12px;
+      text-align: center;
+    }
+    .support-copy {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .support-copy span,
+    .support-cashtag { color: #a5f3fc; }
+    .support-qr {
+      display: block;
+      width: min(100%, 240px);
+      height: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: #000;
+    }
+    .support-cashtag {
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .muted { color: var(--muted); }
+    .stack { display: grid; gap: 10px; }
+    label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 700; }
+    input, select, textarea, button {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0f172a;
+      color: var(--text);
+      padding: 10px;
+      font: inherit;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    button {
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--brand));
+      border: 0;
+      font-weight: 700;
+    }
+    button:hover { filter: brightness(1.08); }
+    .watcher-link {
+      display: block;
+      width: 100%;
+      border-radius: 8px;
+      padding: 10px;
+      background: rgba(34, 211, 238, 0.12);
+      border: 1px solid rgba(34, 211, 238, 0.38);
+      color: var(--text);
+      text-align: center;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .watcher-link:hover { background: rgba(34, 211, 238, 0.2); }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+    .tab {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: #0f172a;
+      color: var(--text);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .tab.active { background: rgba(129, 140, 248, 0.32); }
+    .pane { display: none; }
+    .pane.active { display: block; }
+    .status {
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #0f172a;
+      min-height: 36px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status.ok { border-color: rgba(52, 211, 153, 0.55); color: #bdfce6; }
+    .status.err { border-color: rgba(248, 113, 113, 0.55); color: #fecaca; }
+    pre {
+      margin: 0;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #0a1020;
+      overflow: auto;
+      max-height: calc(100vh - 160px);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .media-preview img, .media-preview video {
+      max-width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      margin-top: 10px;
+    }
+    .result-tools {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.78);
+    }
+    .result-actions {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .result-actions button { padding: 8px; font-size: 12px; }
+    .result-preview {
+      height: min(70vh, 720px);
+      min-height: 460px;
+    }
+    .result-preview.grid-mode .feed-scroll {
+      padding: 10px;
+      scroll-snap-type: none;
+    }
+    .album-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 10px;
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .album-card-mini {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.85);
+      overflow: hidden;
+    }
+    .album-card-mini img {
+      display: block;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      background: #000;
+    }
+    .album-card-mini-body {
+      display: grid;
+      gap: 7px;
+      padding: 8px;
+      font-size: 12px;
+    }
+    .album-card-mini-title {
+      min-height: 30px;
+      color: var(--text);
+      line-height: 1.25;
+      overflow: hidden;
+    }
+    .album-card-mini-meta {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .album-card-mini-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .album-card-mini-actions button { padding: 7px; font-size: 11px; }
+    .hashtag-panel {
+      display: grid;
+      gap: 12px;
+      margin-top: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px;
+    }
+    .hashtag-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: end;
+    }
+    .hashtag-kicker {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .hashtag-row label {
+      min-width: 0;
+      gap: 0;
+    }
+    .hashtag-row input {
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 12px 14px;
+    }
+    .hashtag-row button {
+      width: auto;
+      min-width: 86px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      padding: 12px 14px;
+      font-size: 13px;
+    }
+    .hashtag-row button:hover,
+    .hashtag-chip:hover {
+      border-color: var(--brand);
+      color: var(--text);
+      filter: none;
+    }
+    .hashtag-help {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .hashtag-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .hashtag-chip {
+      width: auto;
+      border: 1px solid rgba(34, 211, 238, 0.5);
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.12);
+      color: #a5f3fc;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .hashtag-chip.suggested {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--muted);
+    }
+    .hashtag-chip.suggested.active {
+      border-color: rgba(34, 211, 238, 0.5);
+      background: rgba(34, 211, 238, 0.12);
+      color: #a5f3fc;
+    }
+    @media (max-width: 620px) {
+      .hashtag-row { grid-template-columns: 1fr 1fr; }
+      .hashtag-row label { grid-column: 1 / -1; }
+      .hashtag-row button { width: 100%; }
+    }
+
+    /* TikTok-style feed */
+    .feed-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .feed-toolbar select, .feed-toolbar input {
+      width: auto; padding: 6px 10px; font-size: 12px;
+    }
+    .feed-toolbar button { width: auto; padding: 6px 12px; font-size: 12px; }
+    .feed-wrap {
+      position: relative;
+      height: calc(100vh - 200px);
+      min-height: 480px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+    }
+    .feed-wrap.desktop {
+      position: fixed;
+      inset: 0;
+      height: 100vh;
+      width: 100vw;
+      border: 0;
+      border-radius: 0;
+      z-index: 9999;
+    }
+    .feed-wrap.desktop .feed-item img,
+    .feed-wrap.desktop .feed-item video { max-height: 100vh; }
+    body[data-layout="phone"] .feed-wrap.desktop {
+      aspect-ratio: auto;
+      max-height: 100vh;
+    }
+    .feed-exit-desktop {
+      position: absolute; top: 12px; right: 12px; z-index: 5;
+      padding: 6px 10px; border-radius: 8px;
+      background: rgba(0,0,0,.6); color: #fff;
+      border: 1px solid rgba(255,255,255,.2);
+      cursor: pointer; font-size: 12px; font-weight: 700;
+      display: none;
+    }
+    .feed-wrap.desktop .feed-exit-desktop { display: block; }
+    .feed-scroll {
+      height: 100%;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      scroll-behavior: smooth;
+    }
+    .feed-item {
+      position: relative;
+      height: 100%;
+      scroll-snap-align: start;
+      scroll-snap-stop: always;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      overflow: hidden;
+    }
+    .feed-item img, .feed-item video {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      background: #000;
+    }
+    .feed-item .feed-meta {
+      position: absolute;
+      left: 12px; right: 12px; bottom: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.65));
+      color: #fff;
+      font-size: 12px;
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+    }
+    .feed-item .feed-meta a { color: #93c5fd; pointer-events: auto; text-decoration: none; }
+    .feed-item .feed-meta a:hover { text-decoration: underline; }
+    .feed-actions {
+      position: absolute; right: 12px; bottom: 70px; z-index: 4;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .feed-actions a, .feed-actions button {
+      width: 44px; height: 44px; padding: 0;
+      border-radius: 50%; border: 1px solid rgba(255,255,255,.2);
+      background: rgba(0,0,0,.55); color: #fff;
+      font-size: 18px; font-weight: 700;
+      display: grid; place-items: center;
+      text-decoration: none; cursor: pointer;
+    }
+    .feed-actions a:hover, .feed-actions button:hover { background: rgba(0,0,0,.8); }
+    .feed-item .feed-badge {
+      position: absolute; top: 12px; left: 12px;
+      padding: 4px 8px; border-radius: 999px;
+      background: rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.15);
+      font-size: 11px; font-weight: 700; color: #fff; letter-spacing: .5px;
+    }
+    .feed-item.dl-pending::after,
+    .feed-item.dl-done::after,
+    .feed-item.dl-error::after {
+      position: absolute; top: 12px; right: 12px; z-index: 5;
+      padding: 5px 9px; border-radius: 999px;
+      color: #fff; font-size: 11px; font-weight: 800;
+      background: rgba(0,0,0,.68); border: 1px solid rgba(255,255,255,.2);
+      min-width: 72px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .feed-item.dl-pending::after { content: attr(data-download-progress); color: #bae6fd; }
+    .feed-item.dl-done::after { content: "Downloaded"; color: #bbf7d0; }
+    .feed-item.dl-error::after { content: "Download error"; color: #fecaca; }
+    .feed-item.placeholder { color: var(--muted); font-size: 13px; }
+    .feed-empty {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      color: var(--muted); padding: 24px; text-align: center;
+    }
+    .feed-loading {
+      position: absolute; bottom: 8px; right: 12px;
+      padding: 4px 10px; border-radius: 999px;
+      background: rgba(0,0,0,.55); border: 1px solid var(--line);
+      font-size: 11px; color: #cbd5e1;
+    }
+
+    @media (max-width: 980px) {
+      .wrap { grid-template-columns: 1fr; }
+      .grid3 { grid-template-columns: 1fr; }
+      pre { max-height: 420px; }
+      .feed-wrap { height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card stack">
+      <div class="brand">
+        <div class="brand-logo-wrap">
+          <svg class="brand-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 220" fill="none" role="img" aria-label="EroTok logo">
+            <defs>
+              <linearGradient id="neon-ui" x1="92" y1="25" x2="720" y2="180" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#42E8FF"/>
+                <stop offset="0.5" stop-color="#6A6DFF"/>
+                <stop offset="1" stop-color="#E86BFF"/>
+              </linearGradient>
+              <filter id="glow-ui" x="0" y="0" width="820" height="220" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+                <feGaussianBlur stdDeviation="6" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <rect width="820" height="220" rx="28" fill="#04060C"/>
+            <g filter="url(#glow-ui)">
+              <rect x="40" y="30" width="160" height="160" rx="40" stroke="url(#neon-ui)" stroke-width="8"/>
+              <path d="M115 68V127C115 145 101 159 83 159C69 159 58 149 58 136C58 122 70 112 86 115C95 116 102 120 108 125V68H115Z" fill="url(#neon-ui)"/>
+              <path d="M115 68C121 81 133 91 149 95V105C133 101 121 92 115 80V68Z" fill="url(#neon-ui)"/>
+              <circle cx="87" cy="136" r="19" fill="url(#neon-ui)"/>
+              <text x="240" y="138" fill="url(#neon-ui)" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="110" font-weight="700">EroTok</text>
+            </g>
+          </svg>
+        </div>
+        <p class="brand-title">EroTok control panel</p>
+        <div id="supportCard" class="support-card" aria-label="Buy me coffee with Cash App">
+          <div class="support-copy"><strong>Buy me coffee</strong><span>$20 starter</span></div>
+          <img id="supportQr" class="support-qr" src="/app/assets/cashapp-qr.jpg" alt="Cash App QR code for $cjordanhot" loading="lazy" decoding="async">
+          <div class="support-cashtag">$cjordanhot</div>
+        </div>
+      </div>
+      <div class="muted">Run actions on your local bridge without writing curl commands.</div>
+      <a class="watcher-link" href="/watcher">Open watcher control room</a>
+      <div id="status" class="status">Ready.</div>
+
+      <label>Layout
+        <select id="layoutMode">
+          <option value="auto" selected>Auto</option>
+          <option value="desktop">Desktop</option>
+          <option value="phone">Phone</option>
+        </select>
+      </label>
+
+      <label>Hide Keywords / Hashtags
+        <textarea id="hideTerms" placeholder="skip words, @names, #tags"></textarea>
+      </label>
+
+      <div class="hashtag-panel">
+        <div class="hashtag-row">
+          <label><span class="hashtag-kicker">Add hashtags</span>
+            <input id="hashtagInput" placeholder="#redhair #outdoor or comma separated">
+          </label>
+          <button id="addHashtags" type="button">Add tags</button>
+          <button id="clearHashtags" type="button">Clear</button>
+        </div>
+        <input id="hashtagTerms" type="hidden" value="">
+        <div id="selectedHashtags" class="hashtag-chips hashtag-selected"></div>
+        <div class="hashtag-help">Select album tags below or type multiple hashtags to combine them with AND search.</div>
+        <div id="suggestedHashtags" class="hashtag-chips hashtag-suggested"></div>
+      </div>
+
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-pane="feed">Feed</button>
+        <button class="tab" data-pane="search">Search</button>
+        <button class="tab" data-pane="explore">Explore</button>
+        <button class="tab" data-pane="profile">Profile</button>
+        <button class="tab" data-pane="version">Version</button>
+        <button class="tab" data-pane="album">Album</button>
+        <button class="tab" data-pane="media">Media</button>
+        <button class="tab" data-pane="download">Download</button>
+        <button class="tab" data-pane="diag">Diagnostics</button>
+      </div>
+
+      <div class="pane active stack" data-pane="feed">
+        <div class="muted">TikTok-style vertical feed. Scrolls one album-item at a time.</div>
+        <label>Source
+          <select id="feedSource">
+            <option value="explore">Explore</option>
+            <option value="exploreNew">Explore (New)</option>
+            <option value="search">Search keyword</option>
+            <option value="profile">Profile uploads</option>
+            <option value="profileReposts">Profile reposts</option>
+          </select>
+        </label>
+        <label>Keywords / Hashtags (for Search)
+          <textarea id="feedKeyword" placeholder="travel, #outdoor, redhair"></textarea>
+        </label>
+        <label>Profile username or URL (for Profile sources)<input id="feedProfileName" placeholder="username or https://www.erome.com/username"></label>
+        <label>Show
+          <select id="feedFilter">
+            <option value="all">All</option>
+            <option value="video">Videos only</option>
+            <option value="photo">Photos only</option>
+          </select>
+        </label>
+        <div class="grid2">
+          <label>Albums per batch<input id="feedAlbumsPerBatch" type="number" min="1" value="6"></label>
+          <label>Max items per album<input id="feedItemsPerAlbum" type="number" min="1" value="8"></label>
+        </div>
+        <div class="grid2">
+          <label>Auto-load ahead
+            <select id="feedEager">
+              <option value="true" selected>On (continuous)</option>
+              <option value="false">Off</option>
+            </select>
+          </label>
+          <label>Fullscreen feed
+            <select id="feedDesktop">
+              <option value="false">Off</option>
+              <option value="true">On</option>
+            </select>
+          </label>
+        </div>
+        <label>Min video length (seconds, 0 = no filter)
+          <input id="feedMinSec" type="number" min="0" value="0">
+        </label>
+        <div class="feed-toolbar">
+          <button id="feedStart">Start Feed</button>
+          <button id="feedReset">Reset</button>
+        </div>
+      </div>
+
+      <div class="pane stack" data-pane="search">
+        <label>Keywords / Hashtags
+          <textarea id="searchKeyword" placeholder="travel, #outdoor, redhair">test</textarea>
+        </label>
+        <label>Search Type
+          <select id="searchHidden">
+            <option value="false">Public</option>
+            <option value="true">Public Hidden</option>
+          </select>
+        </label>
+        <div class="grid2">
+          <label>Page<input id="searchPage" type="number" min="1" value="1"></label>
+          <label>Limit<input id="searchLimit" type="number" min="1" value="1"></label>
+        </div>
+        <button id="runSearch">Run Search</button>
+      </div>
+
+      <div class="pane stack" data-pane="explore">
+        <div class="grid2">
+          <label>Page<input id="explorePage" type="number" min="1" value="1"></label>
+          <label>Limit<input id="exploreLimit" type="number" min="1" value="1"></label>
+        </div>
+        <label>Mode
+          <select id="exploreNew">
+            <option value="false">Explore</option>
+            <option value="true">Explore New</option>
+          </select>
+        </label>
+        <button id="runExplore">Run Explore</button>
+      </div>
+
+      <div class="pane stack" data-pane="profile">
+        <label>Public Profile Username or URL<input id="profileName" placeholder="username or https://www.erome.com/username"></label>
+        <label>Profile Content
+          <select id="profileContent">
+            <option value="albums">Uploads</option>
+            <option value="reposts">Reposts</option>
+          </select>
+        </label>
+        <div class="grid2">
+          <label>Page<input id="profilePage" type="number" min="1" value="1"></label>
+          <label>Limit (0 = full profile)<input id="profileLimit" type="number" min="0" value="0"></label>
+        </div>
+        <button id="runProfile">Fetch Public Profile</button>
+      </div>
+
+      <div class="pane stack" data-pane="version">
+        <label>Public Version / Category
+          <select id="versionValue">
+            <option value="all">All</option>
+            <option value="straight">Straight</option>
+            <option value="trans">Trans</option>
+            <option value="gay">Gay</option>
+            <option value="hentai">Hentai</option>
+          </select>
+        </label>
+        <button id="runVersion">Set Version</button>
+      </div>
+
+      <div class="pane stack" data-pane="album">
+        <label>Album Path or URL<input id="albumPath" value="RHoERFQP"></label>
+        <div class="grid2">
+          <button id="runAlbumInfo">Album Info</button>
+          <button id="runAlbumContent">Album Content</button>
+        </div>
+        <button id="runAlbumMetadata">Album Metadata</button>
+      </div>
+
+      <div class="pane stack" data-pane="media">
+        <label>Media URL<input id="mediaUrl" placeholder="https://s71.erome.com/...jpg"></label>
+        <label>Max video bytes (0 = full)<input id="mediaBytes" type="number" min="0" value="0"></label>
+        <div class="grid2">
+          <button id="runMediaJson">Fetch JSON</button>
+          <button id="runMediaBinary">Preview Binary</button>
+        </div>
+      </div>
+
+      <div class="pane stack" data-pane="download">
+        <label>Album Path or URL<input id="downloadPath" value="RHoERFQP"></label>
+        <label>Directory<input id="downloadDir" value="Downloads"></label>
+        <div class="grid2">
+          <label>Include Photos
+            <select id="downloadPhotos"><option value="true">true</option><option value="false">false</option></select>
+          </label>
+          <label>Include Videos
+            <select id="downloadVideos"><option value="true">true</option><option value="false">false</option></select>
+          </label>
+        </div>
+        <div class="grid2">
+          <label>Overwrite
+            <select id="downloadOverwrite"><option value="false">false</option><option value="true">true</option></select>
+          </label>
+          <label>Workers<input id="downloadWorkers" type="number" min="1" value="4"></label>
+        </div>
+        <button id="runDownload">Run Download</button>
+      </div>
+
+      <div class="pane stack" data-pane="diag">
+        <div class="muted">Checks whether Erome pages are reachable from this server process.</div>
+        <button id="runDiagnostics">Run Connectivity Diagnostics</button>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <div class="grid2">
+        <button id="runHealth">Health</button>
+        <button id="copyJson">Copy JSON</button>
+      </div>
+      <div id="resultTools" class="result-tools" hidden>
+        <div class="grid2">
+          <label>Download Folder<input id="resultDownloadDir" value="Downloads"></label>
+          <label>Media Type
+            <select id="resultMediaType">
+              <option value="all">Photos + Videos</option>
+              <option value="photo">Photos only</option>
+              <option value="video">Videos only</option>
+            </select>
+          </label>
+        </div>
+        <div class="grid3">
+          <label>Album Sort
+            <select id="albumSortBy">
+              <option value="default">Original</option>
+              <option value="views">Views</option>
+              <option value="video_length">Video Length</option>
+              <option value="videos">Videos</option>
+              <option value="photos">Photos</option>
+            </select>
+          </label>
+          <label>Sort Direction
+            <select id="albumSortDir">
+              <option value="desc">High First</option>
+              <option value="asc">Low First</option>
+            </select>
+          </label>
+          <label>Album Filter
+            <select id="albumHiddenOnly">
+              <option value="false">All Public</option>
+              <option value="true">Public Hidden</option>
+            </select>
+          </label>
+        </div>
+        <div class="result-actions">
+          <button id="previewDownloadAlbum">Download Album</button>
+          <button id="previewProfileFeed">Preview Profile</button>
+          <button id="previewDownloadProfile">Download Profile</button>
+          <button id="previewClear">Clear Preview</button>
+        </div>
+      </div>
+      <div id="feedHost" class="feed-wrap" hidden>
+        <button id="feedExitDesktop" class="feed-exit-desktop">Exit Desktop</button>
+        <div class="feed-scroll" id="feedScroll"></div>
+        <div class="feed-empty" id="feedEmpty">Press <b>Start Feed</b> to begin.</div>
+        <div class="feed-loading" id="feedLoading" hidden>Loading…</div>
+      </div>
+      <div id="resultPreview" class="feed-wrap result-preview" hidden>
+        <div class="feed-scroll" id="resultPreviewScroll"></div>
+        <div class="feed-empty" id="resultPreviewEmpty">Run Album Info, Album Content, Profile, or Media Preview.</div>
+        <div class="feed-loading" id="resultPreviewLoading" hidden>Loading…</div>
+      </div>
+      <pre id="output">{\n  "message": "Run an action from the left panel."\n}</pre>
+      <div id="mediaPreview" class="media-preview"></div>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const outputEl = document.getElementById('output');
+    const previewEl = document.getElementById('mediaPreview');
+    const resultToolsEl = document.getElementById('resultTools');
+    const resultPreviewEl = document.getElementById('resultPreview');
+    const resultPreviewScrollEl = document.getElementById('resultPreviewScroll');
+    const resultPreviewEmptyEl = document.getElementById('resultPreviewEmpty');
+    const resultPreviewLoadingEl = document.getElementById('resultPreviewLoading');
+    const resultState = {
+      album: null,
+      profile: null,
+      media: [],
+      allMedia: [],
+      albums: [],
+      allAlbums: [],
+      mediaByAlbum: new Map(),
+      observer: null,
+    };
+    const activeDownloadJobs = new Map();
+    const SUGGESTED_HASHTAGS = [
+      '#tattoos', '#alternative girl', '#egirl', '#redhair', '#outdoor', '#cosplay',
+      '#pink hair', '#piercing', '#goth', '#alt style', '#cabelo rosa',
+      '#skinny alternative', '#alternativa girl'
+    ];
+    let selectedHashtags = [];
+    const FORM_SETTING_IDS = [
+      'hideTerms', 'hashtagTerms',
+      'feedSource', 'feedKeyword', 'feedProfileName', 'feedFilter', 'feedAlbumsPerBatch',
+      'feedItemsPerAlbum', 'feedEager', 'feedDesktop', 'feedMinSec',
+      'searchKeyword', 'searchHidden', 'searchPage', 'searchLimit',
+      'explorePage', 'exploreLimit', 'exploreNew',
+      'profileName', 'profileContent', 'profilePage', 'profileLimit',
+      'versionValue', 'albumPath', 'mediaUrl', 'mediaBytes',
+      'downloadPath', 'downloadDir', 'downloadPhotos', 'downloadVideos', 'downloadOverwrite', 'downloadWorkers',
+      'resultDownloadDir', 'resultMediaType', 'albumSortBy', 'albumSortDir', 'albumHiddenOnly'
+    ];
+    let settingsSaveTimer = null;
+    let isApplyingSettings = false;
+
+    function setStatus(message, ok = true) {
+      statusEl.textContent = message;
+      statusEl.title = message;
+      statusEl.className = 'status ' + (ok ? 'ok' : 'err');
+    }
+
+    function showJson(data) {
+      outputEl.textContent = JSON.stringify(data, null, 2);
+    }
+
+    function delay(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function selectedMediaType() {
+      return document.getElementById('resultMediaType').value || 'all';
+    }
+
+    function selectedDownloadDirectory() {
+      return document.getElementById('resultDownloadDir').value || 'Downloads';
+    }
+
+    function mediaTypeAllowed(type) {
+      const selected = selectedMediaType();
+      return selected === 'all' || selected === type;
+    }
+
+    function selectedAlbumSortBy() {
+      return document.getElementById('albumSortBy').value || 'default';
+    }
+
+    function selectedAlbumSortDir() {
+      return document.getElementById('albumSortDir').value || 'desc';
+    }
+
+    function selectedHiddenOnly() {
+      return document.getElementById('albumHiddenOnly').value === 'true';
+    }
+
+    function albumQueryParams(extraHidden = false) {
+      return new URLSearchParams({
+        sort: selectedAlbumSortBy(),
+        dir: selectedAlbumSortDir(),
+        hidden: String(extraHidden || selectedHiddenOnly()),
+      }).toString();
+    }
+
+    function normalizeHashtagLabel(value) {
+      return String(value || '')
+        .trim()
+        .replace(/^#+/, '')
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+    }
+
+    function uniqueTerms(terms) {
+      const seen = new Set();
+      return terms.filter((term) => {
+        const key = normalizeHashtagLabel(term);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function parseHashtagInput(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return [];
+      const terms = [];
+      raw.split(/[,;\n\r]+/).forEach((group) => {
+        const cleaned = group.trim();
+        if (!cleaned) return;
+        if ((cleaned.match(/#/g) || []).length > 1) {
+          cleaned.split(/(?=#)/g).forEach((part) => {
+            const tag = normalizeHashtagLabel(part);
+            if (tag) terms.push(tag);
+          });
+          return;
+        }
+        const tag = normalizeHashtagLabel(cleaned);
+        if (tag) terms.push(tag);
+      });
+      return uniqueTerms(terms);
+    }
+
+    function parseSearchTerms(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return [];
+      const terms = [];
+      raw.split(/[,;\n\r]+/).forEach((group) => {
+        const cleaned = group.trim();
+        if (!cleaned) return;
+        if (cleaned.includes('#')) {
+          parseHashtagInput(cleaned).forEach((tag) => terms.push(`#${tag}`));
+          return;
+        }
+        cleaned.split(/\s+/).forEach((term) => {
+          if (term) terms.push(term);
+        });
+      });
+      return uniqueTerms(terms);
+    }
+
+    function selectedHashtagQuery() {
+      return selectedHashtags.map((tag) => `#${tag}`).join(', ');
+    }
+
+    function searchQueryFromInput(inputId) {
+      return uniqueTerms([
+        ...parseSearchTerms(selectedHashtagQuery()),
+        ...parseSearchTerms(document.getElementById(inputId)?.value || ''),
+      ]).join(', ');
+    }
+
+    function normalizeFilterTerm(value) {
+      return String(value || '').trim().replace(/^[@#]+/, '').toLowerCase();
+    }
+
+    function albumSearchText(album) {
+      const terms = [
+        album.title,
+        album.url,
+        album.username,
+        album.description,
+        album.visibility,
+        ...(Array.isArray(album.tags) ? album.tags : []),
+        ...(Array.isArray(album.matched_hashtags) ? album.matched_hashtags : []),
+      ];
+      return terms.map(normalizeFilterTerm).join(' ');
+    }
+
+    function albumMatchesHideTerms(album) {
+      const hideTerms = parseSearchTerms(document.getElementById('hideTerms')?.value || '').map(normalizeFilterTerm).filter(Boolean);
+      if (!hideTerms.length) return true;
+      const searchText = albumSearchText(album || {});
+      return !hideTerms.some((term) => searchText.includes(term));
+    }
+
+    function visibleAlbums(albums) {
+      return (Array.isArray(albums) ? albums : []).filter(albumMatchesHideTerms);
+    }
+
+    function syncHashtagTermsInput() {
+      const input = document.getElementById('hashtagTerms');
+      if (input) input.value = selectedHashtagQuery();
+    }
+
+    function setSelectedHashtagsFromValue(value) {
+      selectedHashtags = parseHashtagInput(value);
+      syncHashtagTermsInput();
+      renderHashtagChips();
+    }
+
+    function addHashtagTerms(terms) {
+      selectedHashtags = uniqueTerms([...selectedHashtags, ...terms.map(normalizeHashtagLabel)]);
+      syncHashtagTermsInput();
+      renderHashtagChips();
+      scheduleSettingsSave();
+    }
+
+    function removeHashtagTerm(term) {
+      const key = normalizeHashtagLabel(term);
+      selectedHashtags = selectedHashtags.filter((tag) => normalizeHashtagLabel(tag) !== key);
+      syncHashtagTermsInput();
+      renderHashtagChips();
+      scheduleSettingsSave();
+    }
+
+    function renderHashtagChips() {
+      const selectedEl = document.getElementById('selectedHashtags');
+      const suggestedEl = document.getElementById('suggestedHashtags');
+      if (!selectedEl || !suggestedEl) return;
+      selectedEl.innerHTML = '';
+      selectedHashtags.forEach((tag) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'hashtag-chip';
+        chip.textContent = `#${tag} x`;
+        chip.onclick = () => removeHashtagTerm(tag);
+        selectedEl.appendChild(chip);
+      });
+      suggestedEl.innerHTML = '';
+      SUGGESTED_HASHTAGS.forEach((tag) => {
+        const normalized = normalizeHashtagLabel(tag);
+        const active = selectedHashtags.some((item) => normalizeHashtagLabel(item) === normalized);
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = `hashtag-chip suggested${active ? ' active' : ''}`;
+        chip.textContent = `#${normalized}`;
+        chip.onclick = () => active ? removeHashtagTerm(normalized) : addHashtagTerms([normalized]);
+        suggestedEl.appendChild(chip);
+      });
+    }
+
+    function albumSortValue(album, sortBy) {
+      if (sortBy === 'views') return Number(album.views || 0);
+      if (sortBy === 'video_length') return Number(album.duration_seconds || 0);
+      if (sortBy === 'videos') return Number(album.videos || 0);
+      if (sortBy === 'photos') return Number(album.images || 0);
+      return 0;
+    }
+
+    function sortAlbumsForDisplay(albums) {
+      const sortBy = selectedAlbumSortBy();
+      const dir = selectedAlbumSortDir();
+      let list = visibleAlbums(albums).filter((album) => !selectedHiddenOnly() || album.is_hidden);
+      if (sortBy === 'default') return list;
+      const direction = dir === 'asc' ? 1 : -1;
+      return [...list].sort((a, b) => {
+        const delta = albumSortValue(a, sortBy) - albumSortValue(b, sortBy);
+        if (delta !== 0) return delta * direction;
+        return String(a.title || '').localeCompare(String(b.title || ''));
+      });
+    }
+
+    function formatDuration(seconds) {
+      const total = Math.max(0, Number(seconds || 0));
+      if (!total) return '0:00';
+      const mins = Math.floor(total / 60);
+      const secs = String(total % 60).padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function albumMetaText(album) {
+      const bits = [
+        `${album.images || 0} photos`,
+        `${album.videos || 0} videos`,
+        `${album.views || 0} views`,
+        `${formatDuration(album.duration_seconds)} video`,
+      ];
+      if (album.is_hidden) bits.push('hidden');
+      return bits.join(' · ');
+    }
+
+    function syncDownloadTabFromResultTools() {
+      const directory = selectedDownloadDirectory();
+      const mediaType = selectedMediaType();
+      document.getElementById('downloadDir').value = directory;
+      document.getElementById('downloadPhotos').value = mediaType === 'video' ? 'false' : 'true';
+      document.getElementById('downloadVideos').value = mediaType === 'photo' ? 'false' : 'true';
+    }
+
+    function syncResultToolsFromDownloadTab() {
+      const directory = document.getElementById('downloadDir').value || 'Downloads';
+      const includePhotos = document.getElementById('downloadPhotos').value === 'true';
+      const includeVideos = document.getElementById('downloadVideos').value === 'true';
+      document.getElementById('resultDownloadDir').value = directory;
+      document.getElementById('resultMediaType').value = includePhotos && includeVideos ? 'all' : (includeVideos ? 'video' : 'photo');
+    }
+
+    function collectFormSettings() {
+      return FORM_SETTING_IDS.reduce((values, id) => {
+        const element = document.getElementById(id);
+        if (element) values[id] = element.value;
+        return values;
+      }, {});
+    }
+
+    function applyFormSettings(formValues = {}) {
+      isApplyingSettings = true;
+      try {
+        FORM_SETTING_IDS.forEach((id) => {
+          const element = document.getElementById(id);
+          if (element && Object.prototype.hasOwnProperty.call(formValues, id)) {
+            element.value = formValues[id];
+          }
+        });
+        syncDownloadTabFromResultTools();
+        setSelectedHashtagsFromValue(document.getElementById('hashtagTerms')?.value || '');
+      } finally {
+        isApplyingSettings = false;
+      }
+    }
+
+    function settingsPayload() {
+      return {
+        download_directory: document.getElementById('downloadDir').value || selectedDownloadDirectory(),
+        media_type: selectedMediaType(),
+        skip_downloaded: true,
+        overwrite: document.getElementById('downloadOverwrite').value === 'true',
+        max_workers: Number(document.getElementById('downloadWorkers').value || 4),
+        form_values: collectFormSettings(),
+      };
+    }
+
+    function scheduleSettingsSave() {
+      if (isApplyingSettings) return;
+      clearTimeout(settingsSaveTimer);
+      settingsSaveTimer = setTimeout(() => saveBackendSettings(), 350);
+    }
+
+    async function saveBackendSettings() {
+      try {
+        await getJson('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settingsPayload()),
+        });
+      } catch (error) {
+        console.warn('Could not save settings', error);
+      }
+    }
+
+    async function loadBackendState() {
+      try {
+        const state = await getJson('/api/state');
+        const settings = state.data && state.data.settings ? state.data.settings : {};
+        document.getElementById('resultDownloadDir').value = settings.download_directory || 'Downloads';
+        document.getElementById('resultMediaType').value = settings.media_type || 'all';
+        document.getElementById('downloadDir').value = settings.download_directory || 'Downloads';
+        document.getElementById('downloadOverwrite').value = settings.overwrite ? 'true' : 'false';
+        document.getElementById('downloadWorkers').value = settings.max_workers || 4;
+        applyFormSettings(settings.form_values || {});
+      } catch (error) {
+        console.warn('Could not load backend state', error);
+      }
+    }
+
+    function bindFormSettingsPersistence() {
+      FORM_SETTING_IDS.forEach((id) => {
+        const element = document.getElementById(id);
+        if (!element) return;
+        const saveChange = () => {
+          if (isApplyingSettings) return;
+          if (id === 'resultDownloadDir' || id === 'resultMediaType') {
+            syncDownloadTabFromResultTools();
+          } else if (id === 'downloadDir' || id === 'downloadPhotos' || id === 'downloadVideos') {
+            syncResultToolsFromDownloadTab();
+          }
+          if (id === 'hideTerms') {
+            if (!resultPreviewEl.hidden && resultPreviewEl.classList.contains('grid-mode')) {
+              renderAlbumCards(resultState.allAlbums);
+            } else if (resultState.album && resultState.allMedia.length) {
+              renderMediaFeed(resultState.album, resultState.allMedia);
+            }
+          }
+          scheduleSettingsSave();
+        };
+        element.addEventListener('change', saveChange);
+        if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') element.addEventListener('input', saveChange);
+      });
+    }
+
+    function showResultPreview(gridMode = false) {
+      resultToolsEl.hidden = false;
+      resultPreviewEl.hidden = false;
+      resultPreviewEl.classList.toggle('grid-mode', !!gridMode);
+      document.getElementById('feedHost').hidden = true;
+      outputEl.style.display = 'none';
+    }
+
+    function clearResultPreview() {
+      if (resultState.observer) {
+        resultState.observer.disconnect();
+        resultState.observer = null;
+      }
+      resultPreviewScrollEl.innerHTML = '';
+      resultPreviewEmptyEl.textContent = 'Run Album Info, Album Content, Profile, or Media Preview.';
+      resultPreviewEmptyEl.style.display = '';
+      resultPreviewEl.hidden = true;
+      resultToolsEl.hidden = true;
+      resultPreviewEl.classList.remove('grid-mode');
+      resultState.album = null;
+      resultState.profile = null;
+      resultState.media = [];
+      resultState.allMedia = [];
+      resultState.albums = [];
+      resultState.allAlbums = [];
+      resultState.mediaByAlbum.clear();
+      outputEl.style.display = '';
+    }
+
+    function ensureResultObserver() {
+      if (resultState.observer) return resultState.observer;
+      resultState.observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          const video = entry.target.querySelector('video');
+          if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+            attachMedia(entry.target);
+            if (video) {
+              video.muted = true;
+              video.play().catch(() => {});
+            }
+          } else if (video) {
+            try { video.pause(); } catch {}
+          }
+        });
+      }, { root: resultPreviewScrollEl, threshold: [0, 0.6, 1] });
+      return resultState.observer;
+    }
+
+    function renderMediaFeed(album, mediaItems) {
+      showResultPreview(false);
+      resultPreviewScrollEl.innerHTML = '';
+      const albumVisible = !album || albumMatchesHideTerms(album);
+      const filtered = albumVisible ? (mediaItems || []).filter((media) => media && media.url && mediaTypeAllowed(media.type)) : [];
+      resultState.album = album || null;
+      resultState.allMedia = mediaItems || [];
+      resultState.media = filtered;
+      resultPreviewEmptyEl.style.display = filtered.length ? 'none' : '';
+      resultPreviewEmptyEl.textContent = filtered.length ? '' : 'No media matches the selected type.';
+      const io = ensureResultObserver();
+      filtered.forEach((media) => {
+        const item = makeFeedItem(album || { title: 'Media', url: '' }, media);
+        resultPreviewScrollEl.appendChild(item);
+        io.observe(item);
+      });
+      Array.from(resultPreviewScrollEl.children).slice(0, 3).forEach(attachMedia);
+    }
+
+    function renderAlbumCards(albums) {
+      showResultPreview(true);
+      resultPreviewScrollEl.innerHTML = '';
+      const grid = document.createElement('div');
+      grid.className = 'album-grid';
+      resultState.allAlbums = Array.isArray(albums) ? albums : [];
+      const list = sortAlbumsForDisplay(resultState.allAlbums);
+      resultState.albums = list;
+      resultPreviewEmptyEl.style.display = list.length ? 'none' : '';
+      resultPreviewEmptyEl.textContent = list.length ? '' : 'No public albums found.';
+      list.forEach((album) => {
+        const card = document.createElement('div');
+        card.className = 'album-card-mini';
+        const thumb = album.thumb ? proxyUrl(album.thumb) : '';
+        card.innerHTML = `
+          ${thumb ? `<img src="${thumb}" alt="">` : '<img alt="">'}
+          <div class="album-card-mini-body">
+            <div class="album-card-mini-title">${escapeHtml(album.title || 'Untitled')}</div>
+            <div class="album-card-mini-meta">${escapeHtml(albumMetaText(album))}</div>
+            <div class="album-card-mini-actions">
+              <button type="button" data-act="preview">Preview</button>
+              <button type="button" data-act="download">Download</button>
+            </div>
+          </div>`;
+        card.querySelector('[data-act="preview"]').onclick = () => previewAlbum(album);
+        card.querySelector('[data-act="download"]').onclick = () => triggerAlbumDownload(album, null);
+        grid.appendChild(card);
+      });
+      resultPreviewScrollEl.appendChild(grid);
+    }
+
+    function escapeHtml(value) {
+      return String(value || '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    async function getJson(url, options = {}, retries = 2) {
+      let lastError;
+      const method = String(options.method || 'GET').toUpperCase();
+      const maxAttempts = method === 'GET' ? retries + 1 : 1;
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        try {
+          const res = await fetch(url, options);
+          const text = await res.text();
+          let parsed;
+          try { parsed = JSON.parse(text); } catch { parsed = { ok: false, error: text }; }
+          if (!res.ok || parsed.ok === false) {
+            throw new Error(parsed.error || ('Request failed with ' + res.status));
+          }
+          return parsed;
+        } catch (error) {
+          lastError = error;
+          if (attempt >= maxAttempts - 1) break;
+          await delay(350 * (attempt + 1));
+        }
+      }
+      throw lastError;
+    }
+
+    function describeDownloadJob(job) {
+      const totalText = job.total ? `${job.completed || 0}/${job.total}` : `${job.completed || 0}/?`;
+      const currentName = job.current && job.current.filename ? ` ${job.current.filename}` : '';
+      const retryText = job.last_error ? ` Last error: ${job.last_error}` : '';
+      return `${job.kind || 'download'} ${String(job.id || '').slice(0, 8)}: ${job.percent || 0}% (${totalText}) ${job.status || 'running'}${currentName}.${retryText}`;
+    }
+
+    function rememberDownloadJob(job) {
+      if (!job || !job.id) return;
+      activeDownloadJobs.set(job.id, job);
+      showJson({
+        ok: true,
+        active_downloads: Array.from(activeDownloadJobs.values()).map((item) => ({
+          id: item.id,
+          kind: item.kind,
+          status: item.status,
+          percent: item.percent,
+          completed: item.completed,
+          total: item.total,
+          attempts: item.attempts,
+          retry_count: item.retry_count,
+          last_error: item.last_error,
+          current: item.current,
+          result: item.result,
+        })),
+      });
+    }
+
+    function updateDownloadJobStatus(job) {
+      rememberDownloadJob(job);
+      setStatus(describeDownloadJob(job), job.status !== 'error');
+    }
+
+    async function pollDownloadJob(jobId, hooks = {}) {
+      while (true) {
+        await delay(900);
+        let response;
+        try {
+          response = await getJson(`/api/download/jobs/${encodeURIComponent(jobId)}`);
+        } catch (error) {
+          setStatus(`Download job poll failed, retrying: ${error.message || error}`, false);
+          await delay(1500);
+          continue;
+        }
+        const job = response.data;
+        updateDownloadJobStatus(job);
+        if (hooks.onUpdate) hooks.onUpdate(job);
+        if (job.status === 'done' || job.status === 'error') {
+          if (hooks.onDone) hooks.onDone(job);
+          return job;
+        }
+      }
+    }
+
+    async function startDownloadJob(endpoint, body, hooks = {}) {
+      const started = await getJson(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const job = started.data;
+      updateDownloadJobStatus(job);
+      if (hooks.onUpdate) hooks.onUpdate(job);
+      if (job.status === 'done' || job.status === 'error') {
+        if (hooks.onDone) hooks.onDone(job);
+        return { ok: true, data: job.result, job };
+      }
+      const finalJob = await pollDownloadJob(job.id, hooks);
+      return { ok: finalJob.status !== 'error', data: finalJob.result, job: finalJob };
+    }
+
+    function maybeAddHint(action, result) {
+      if (!result || typeof result !== 'object') return result;
+      const emptyArrayData = Array.isArray(result.data) && result.data.length === 0;
+      const emptyAlbumMedia = action === 'albumInfo' && result.data && Array.isArray(result.data.media) && result.data.media.length === 0;
+      if (emptyArrayData || emptyAlbumMedia) {
+        result.hint = 'The server works, but Erome returned no parsed items. Use Diagnostics tab to check if Erome is blocking/sanitizing responses from this environment.';
+      }
+      return result;
+    }
+
+    async function run(action) {
+      previewEl.innerHTML = '';
+      setStatus('Running ' + action + '...', true);
+      try {
+        const result = maybeAddHint(action, await actionMap[action]());
+        showJson(result || {});
+        await handleActionResult(action, result || {});
+        if (action !== 'download') setStatus('Success', true);
+      } catch (error) {
+        showJson({ ok: false, error: error.message || String(error) });
+        setStatus('Error: ' + (error.message || error), false);
+      }
+    }
+
+    async function handleActionResult(action, result) {
+      const data = result.data || {};
+      if (action === 'profile') {
+        resultState.profile = data;
+        resultState.album = null;
+        resultState.media = [];
+        renderAlbumCards(data.albums || []);
+        return;
+      }
+      if (action === 'albumInfo') {
+        renderMediaFeed(data, Array.isArray(data.media) ? data.media : []);
+        return;
+      }
+      if (action === 'albumContent') {
+        const album = {
+          title: document.getElementById('albumPath').value || 'Album',
+          url: `/a/${albumPathFromUrl(document.getElementById('albumPath').value || '')}`,
+        };
+        const media = [];
+        (data.photos || []).forEach((url) => media.push({ type: 'photo', url }));
+        (data.videos || []).forEach((item) => media.push({ type: 'video', url: item.video_url, thumb_url: item.thumb_url }));
+        renderMediaFeed(album, media);
+        return;
+      }
+      if (action === 'search' || action === 'explore') {
+        renderAlbumCards(Array.isArray(data) ? data : []);
+        return;
+      }
+      if (!['mediaBinary'].includes(action)) {
+        if (document.querySelector('.tab.active')?.dataset.pane !== 'feed') {
+          resultPreviewEl.hidden = true;
+          resultToolsEl.hidden = true;
+          outputEl.style.display = '';
+        }
+      }
+    }
+
+    const actionMap = {
+      health: () => getJson('/health'),
+      search: () => {
+        const keyword = encodeURIComponent(searchQueryFromInput('searchKeyword'));
+        const page = Number(document.getElementById('searchPage').value || 1);
+        const limit = Number(document.getElementById('searchLimit').value || 1);
+        const hidden = document.getElementById('searchHidden').value === 'true';
+        const route = hidden ? '/api/hidden-search' : '/api/search';
+        return getJson(`${route}?keyword=${keyword}&page=${page}&limit=${limit}&${albumQueryParams(hidden)}`);
+      },
+      explore: () => {
+        const page = Number(document.getElementById('explorePage').value || 1);
+        const limit = Number(document.getElementById('exploreLimit').value || 1);
+        const isNew = document.getElementById('exploreNew').value;
+        return getJson(`/api/explore?page=${page}&limit=${limit}&new=${isNew}&${albumQueryParams()}`);
+      },
+      profile: () => {
+        const profile = encodeURIComponent(document.getElementById('profileName').value || '');
+        const page = Number(document.getElementById('profilePage').value || 1);
+        const limitValue = document.getElementById('profileLimit').value;
+        const limit = limitValue === '' ? 0 : Number(limitValue);
+        const content = encodeURIComponent(document.getElementById('profileContent').value || 'albums');
+        return getJson(`/api/profile?profile=${profile}&page=${page}&limit=${limit}&content=${content}&${albumQueryParams()}`);
+      },
+      version: () => {
+        const version = encodeURIComponent(document.getElementById('versionValue').value || 'all');
+        return getJson(`/api/version?version=${version}`);
+      },
+      albumInfo: () => {
+        const path = encodeURIComponent(document.getElementById('albumPath').value || '');
+        return getJson(`/api/album/info?path=${path}`);
+      },
+      albumContent: () => {
+        const path = encodeURIComponent(document.getElementById('albumPath').value || '');
+        return getJson(`/api/album/content?path=${path}`);
+      },
+      albumMetadata: () => {
+        const path = encodeURIComponent(document.getElementById('albumPath').value || '');
+        return getJson(`/api/album/metadata?path=${path}`);
+      },
+      mediaJson: () => {
+        const mediaUrl = encodeURIComponent(document.getElementById('mediaUrl').value || '');
+        const maxBytes = Number(document.getElementById('mediaBytes').value || 0);
+        return getJson(`/api/content?url=${mediaUrl}&maxVideoBytes=${maxBytes}&binary=false`);
+      },
+      mediaBinary: async () => {
+        const rawUrl = document.getElementById('mediaUrl').value || '';
+        const mediaUrl = encodeURIComponent(rawUrl);
+        const maxBytes = Number(document.getElementById('mediaBytes').value || 0);
+        const response = await fetch(`/api/content?url=${mediaUrl}&maxVideoBytes=${maxBytes}&binary=true`);
+        if (!response.ok) {
+          throw new Error('Binary fetch failed with ' + response.status);
+        }
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const contentType = blob.type || '';
+        if (contentType.startsWith('image/')) {
+          previewEl.innerHTML = `<img src="${objectUrl}" alt="preview">`;
+        } else if (contentType.startsWith('video/')) {
+          previewEl.innerHTML = `<video src="${objectUrl}" controls></video>`;
+        } else {
+          previewEl.innerHTML = `<div class="muted">Received ${blob.size} bytes (${contentType || 'application/octet-stream'})</div>`;
+        }
+        renderMediaFeed(
+          { title: 'Selected media', url: '' },
+          [{ type: contentType.startsWith('video/') ? 'video' : 'photo', url: rawUrl }]
+        );
+        return { ok: true, data: { size: blob.size, contentType: contentType || 'application/octet-stream', source: rawUrl } };
+      },
+      diagnostics: () => getJson('/api/diagnostics'),
+      download: () => {
+        const body = {
+          path: document.getElementById('downloadPath').value || '',
+          directory: document.getElementById('downloadDir').value || 'Downloads',
+          include_photos: document.getElementById('downloadPhotos').value === 'true',
+          include_videos: document.getElementById('downloadVideos').value === 'true',
+          media_type: selectedMediaType(),
+          skip_downloaded: true,
+          overwrite: document.getElementById('downloadOverwrite').value === 'true',
+          max_workers: Number(document.getElementById('downloadWorkers').value || 4),
+        };
+        return startDownloadJob('/api/download/jobs', body);
+      },
+    };
+
+    document.getElementById('runHealth').onclick = () => run('health');
+    document.getElementById('runSearch').onclick = () => run('search');
+    document.getElementById('runExplore').onclick = () => run('explore');
+    document.getElementById('runProfile').onclick = () => run('profile');
+    document.getElementById('runVersion').onclick = () => run('version');
+    document.getElementById('runAlbumInfo').onclick = () => run('albumInfo');
+    document.getElementById('runAlbumContent').onclick = () => run('albumContent');
+    document.getElementById('runAlbumMetadata').onclick = () => run('albumMetadata');
+    document.getElementById('runMediaJson').onclick = () => run('mediaJson');
+    document.getElementById('runMediaBinary').onclick = () => run('mediaBinary');
+    document.getElementById('runDownload').onclick = () => run('download');
+    document.getElementById('runDiagnostics').onclick = () => run('diagnostics');
+    document.getElementById('addHashtags').onclick = () => {
+      const input = document.getElementById('hashtagInput');
+      addHashtagTerms(parseHashtagInput(input.value));
+      input.value = '';
+    };
+    document.getElementById('clearHashtags').onclick = () => {
+      selectedHashtags = [];
+      syncHashtagTermsInput();
+      renderHashtagChips();
+      scheduleSettingsSave();
+    };
+    document.getElementById('hashtagInput').addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      document.getElementById('addHashtags').click();
+    });
+    document.getElementById('previewDownloadAlbum').onclick = () => {
+      if (!resultState.album) { setStatus('No album preview is loaded', false); return; }
+      triggerAlbumDownload(resultState.album, null);
+    };
+    document.getElementById('previewProfileFeed').onclick = previewProfileFeed;
+    document.getElementById('previewDownloadProfile').onclick = downloadProfileAlbums;
+    document.getElementById('previewClear').onclick = clearResultPreview;
+    document.getElementById('resultDownloadDir').onchange = saveBackendSettings;
+    document.getElementById('resultMediaType').onchange = async () => {
+      syncDownloadTabFromResultTools();
+      await saveBackendSettings();
+      if (resultState.album && resultState.allMedia.length) {
+        renderMediaFeed(resultState.album, resultState.allMedia);
+      }
+    };
+    document.getElementById('searchHidden').onchange = (event) => {
+      document.getElementById('albumHiddenOnly').value = event.target.value;
+    };
+    ['albumSortBy', 'albumSortDir', 'albumHiddenOnly'].forEach((id) => {
+      document.getElementById(id).onchange = () => {
+        if (!resultPreviewEl.hidden && resultPreviewEl.classList.contains('grid-mode')) {
+          renderAlbumCards(resultState.allAlbums);
+        }
+      };
+    });
+    document.getElementById('copyJson').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(outputEl.textContent);
+        setStatus('JSON copied to clipboard', true);
+      } catch {
+        setStatus('Copy failed', false);
+      }
+    };
+
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t === tab));
+        const pane = tab.dataset.pane;
+        document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('active', p.dataset.pane === pane));
+        const feedHost = document.getElementById('feedHost');
+        const outputPre = document.getElementById('output');
+        const isFeed = pane === 'feed';
+        feedHost.hidden = !isFeed;
+        if (isFeed) {
+          resultPreviewEl.hidden = true;
+          resultToolsEl.hidden = true;
+          outputPre.style.display = 'none';
+        } else {
+          outputPre.style.display = resultPreviewEl.hidden ? '' : 'none';
+        }
+      });
+    });
+
+    /* ---------------- TikTok-style Feed ---------------- */
+    const feedScrollEl = document.getElementById('feedScroll');
+    const feedEmptyEl = document.getElementById('feedEmpty');
+    const feedLoadingEl = document.getElementById('feedLoading');
+    const feedState = {
+      running: false,
+      page: 1,
+      albumQueue: [],
+      seenAlbums: new Set(),
+      seenMedia: new Set(),
+      io: null,
+      loadingMore: false,
+      finished: false,
+    };
+
+    function proxyUrl(mediaUrl) {
+      return `/proxy?url=${encodeURIComponent(mediaUrl)}`;
+    }
+    function downloadUrl(mediaUrl) {
+      return `/proxy?url=${encodeURIComponent(mediaUrl)}&download=1`;
+    }
+
+    function attachMedia(item) {
+      if (item.dataset.attached === '1') return;
+      const type = item.dataset.type;
+      const src = item.dataset.src;
+      if (!src) return;
+      if (type === 'video') {
+        const video = item.querySelector('video');
+        if (video && !video.src) {
+          video.src = proxyUrl(src);
+          video.load();
+        }
+      } else {
+        const img = item.querySelector('img');
+        if (img && !img.src) img.src = proxyUrl(src);
+      }
+      item.dataset.attached = '1';
+    }
+    function detachMedia(item) {
+      if (item.dataset.attached !== '1') return;
+      const type = item.dataset.type;
+      if (type === 'video') {
+        const video = item.querySelector('video');
+        if (video) { try { video.pause(); } catch {} video.removeAttribute('src'); video.load(); }
+      } else {
+        const img = item.querySelector('img');
+        if (img) img.removeAttribute('src');
+      }
+      item.dataset.attached = '0';
+    }
+
+    function updateAttachWindow(activeIdx) {
+      const items = Array.from(feedScrollEl.children);
+      const AHEAD = 3, BEHIND = 1;
+      items.forEach((el, i) => {
+        if (i >= activeIdx - BEHIND && i <= activeIdx + AHEAD) attachMedia(el);
+        else if (Math.abs(i - activeIdx) > 6) detachMedia(el);
+      });
+    }
+
+    function ensureFeedObserver() {
+      if (feedState.io) return feedState.io;
+      feedState.io = new IntersectionObserver((entries) => {
+        let activeIdx = -1;
+        const items = Array.from(feedScrollEl.children);
+        entries.forEach((entry) => {
+          const idx = items.indexOf(entry.target);
+          const video = entry.target.querySelector('video');
+          if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
+            activeIdx = idx;
+            attachMedia(entry.target);
+            if (video) {
+              video.muted = true;
+              video.play().catch(() => {});
+            }
+          } else if (video) {
+            try { video.pause(); } catch {}
+          }
+        });
+        if (activeIdx >= 0) updateAttachWindow(activeIdx);
+        if (activeIdx >= 0 && activeIdx >= items.length - 5 && !feedState.loadingMore && !feedState.finished) {
+          loadMoreFeed();
+        }
+      }, { root: feedScrollEl, threshold: [0, 0.6, 1] });
+      return feedState.io;
+    }
+
+    function makeFeedItem(album, media) {
+      const item = document.createElement('div');
+      item.className = 'feed-item';
+      item.dataset.type = media.type;
+      item.dataset.src = media.url;
+      item.dataset.attached = '0';
+      item.dataset.albumPath = albumPathFromUrl(album.url) || (album.url || '');
+
+      const badge = document.createElement('div');
+      badge.className = 'feed-badge';
+      badge.textContent = media.type === 'video' ? 'VIDEO' : 'PHOTO';
+      item.appendChild(badge);
+
+      if (media.type === 'video') {
+        const video = document.createElement('video');
+        if (media.thumb_url) video.poster = proxyUrl(media.thumb_url);
+        video.controls = true;
+        video.playsInline = true;
+        video.muted = true;
+        video.loop = true;
+        video.preload = 'none';
+        const minSec = Math.max(0, Number(document.getElementById('feedMinSec').value || 0));
+        if (minSec > 0) {
+          video.addEventListener('loadedmetadata', () => {
+            if (Number.isFinite(video.duration) && video.duration < minSec) {
+              item.dataset.filtered = '1';
+              item.style.display = 'none';
+            }
+          }, { once: true });
+        }
+        item.appendChild(video);
+      } else {
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.alt = album.title || '';
+        item.appendChild(img);
+      }
+
+      const actions = document.createElement('div');
+      actions.className = 'feed-actions';
+      const dl = document.createElement('button');
+      dl.type = 'button';
+      dl.title = 'Download this media';
+      dl.textContent = '⬇';
+      dl.onclick = () => downloadMediaToDir(media, album);
+      actions.appendChild(dl);
+      const dlAlbum = document.createElement('button');
+      dlAlbum.title = 'Download whole album, then skip to next';
+      dlAlbum.textContent = '📁';
+      dlAlbum.onclick = () => triggerAlbumDownload(album, item);
+      actions.appendChild(dlAlbum);
+      item.appendChild(actions);
+
+      const meta = document.createElement('div');
+      meta.className = 'feed-meta';
+      const safeTitle = (album.title || '(untitled)').replace(/</g, '&lt;');
+      const albumUrl = album.url || '#';
+      meta.innerHTML = `<div><b>${safeTitle}</b></div><div><a href="${albumUrl}" target="_blank" rel="noopener">Open album ↗</a></div>`;
+      item.appendChild(meta);
+      return item;
+    }
+
+    function skipToNextAlbum(fromItem) {
+      if (!fromItem) return;
+      const currentPath = fromItem.dataset.albumPath || '';
+      let node = fromItem.nextElementSibling;
+      while (node) {
+        if (node.classList && node.classList.contains('feed-item') &&
+            node.dataset.albumPath && node.dataset.albumPath !== currentPath &&
+            node.style.display !== 'none') {
+          node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return true;
+        }
+        node = node.nextElementSibling;
+      }
+      // No next album loaded yet — request more and try again shortly.
+      if (typeof loadMoreFeed === 'function') {
+        loadMoreFeed();
+        setTimeout(() => skipToNextAlbum(fromItem), 800);
+      }
+      return false;
+    }
+
+    async function triggerAlbumDownload(album, sourceItem) {
+      const path = albumPathFromUrl(album.url);
+      if (!path) { setStatus('No album path found', false); return; }
+      await saveBackendSettings();
+      const mediaType = selectedMediaType();
+      const albumItems = Array.from(document.querySelectorAll(`.feed-item[data-album-path="${path}"]`));
+      albumItems.forEach(el => {
+        el.classList.remove('dl-done', 'dl-error');
+        el.classList.add('dl-pending');
+        el.dataset.downloadProgress = '0%';
+      });
+      const body = {
+        path,
+        directory: selectedDownloadDirectory(),
+        include_photos: mediaType !== 'video',
+        include_videos: mediaType !== 'photo',
+        media_type: mediaType,
+        skip_downloaded: true,
+        overwrite: document.getElementById('downloadOverwrite').value === 'true',
+        max_workers: Number(document.getElementById('downloadWorkers').value || 4),
+      };
+      try {
+        const result = await startDownloadJob('/api/download/jobs', body, {
+          onUpdate: (job) => {
+            const progress = `${job.percent || 0}%`;
+            albumItems.forEach(el => { el.dataset.downloadProgress = progress; });
+            const retry = job.last_error ? ` Retrying after: ${job.last_error}` : '';
+            setStatus(`Album ${album.title || path}: ${progress} (${job.completed || 0}/${job.total || '?'}) ${job.status}.${retry}`, job.status !== 'error');
+          },
+          onDone: (job) => {
+            albumItems.forEach(el => {
+              el.classList.remove('dl-pending');
+              el.classList.add(job.status === 'done' ? 'dl-done' : 'dl-error');
+            });
+            if (job.status === 'done' && (sourceItem || albumItems.length)) {
+              skipToNextAlbum(sourceItem || albumItems[albumItems.length - 1]);
+            }
+          }
+        });
+        return result;
+      } catch (err) {
+        albumItems.forEach(el => { el.classList.remove('dl-pending'); el.classList.add('dl-error'); });
+        setStatus('Album download failed: ' + (err.message || err), false);
+      }
+    }
+
+    async function downloadMediaToDir(media, album = {}) {
+      if (!media || !media.url) { setStatus('No media URL found', false); return; }
+      if (!mediaTypeAllowed(media.type)) {
+        setStatus('Media skipped by selected type filter', false);
+        return;
+      }
+      await saveBackendSettings();
+      try {
+        setStatus('Starting media download job...', true);
+        const result = await startDownloadJob('/api/download/media/jobs', {
+          url: media.url,
+          album: album.url || '',
+          directory: selectedDownloadDirectory(),
+          overwrite: document.getElementById('downloadOverwrite').value === 'true',
+          skip_downloaded: true,
+        }, {
+          onUpdate: (job) => {
+            const retry = job.last_error ? ` Retrying after: ${job.last_error}` : '';
+            setStatus(`Media download ${job.percent || 0}% ${job.status}.${retry}`, job.status !== 'error');
+          }
+        });
+        showJson(result);
+        setStatus(result.job && result.job.status === 'done' ? 'Media saved' : 'Media download ended with an error', !!(result.job && result.job.status === 'done'));
+        return result;
+      } catch (error) {
+        setStatus('Media download failed: ' + (error.message || error), false);
+      }
+    }
+
+    async function previewAlbum(album) {
+      const path = albumPathFromUrl(album.url);
+      if (!path) { setStatus('No album path found', false); return; }
+      resultPreviewLoadingEl.hidden = false;
+      setStatus('Loading album preview...', true);
+      try {
+        const result = await getJson(`/api/album/info?path=${encodeURIComponent(path)}`);
+        const data = result.data || {};
+        resultState.mediaByAlbum.set(album.url || path, data.media || []);
+        showJson(result);
+        renderMediaFeed(data, data.media || []);
+        setStatus('Album preview loaded', true);
+      } catch (error) {
+        setStatus('Album preview failed: ' + (error.message || error), false);
+      } finally {
+        resultPreviewLoadingEl.hidden = true;
+      }
+    }
+
+    function currentProfileAlbums() {
+      if (resultState.profile && Array.isArray(resultState.allAlbums) && resultState.allAlbums.length) {
+        return resultState.albums;
+      }
+      return resultState.profile && Array.isArray(resultState.profile.albums) ? resultState.profile.albums : [];
+    }
+
+    async function previewProfileFeed() {
+      const albums = currentProfileAlbums();
+      if (!albums.length) { setStatus('No profile albums to preview', false); return; }
+      resultPreviewLoadingEl.hidden = false;
+      showResultPreview(false);
+      resultPreviewScrollEl.innerHTML = '';
+      resultState.media = [];
+      resultPreviewEmptyEl.textContent = 'Loading profile media...';
+      resultPreviewEmptyEl.style.display = '';
+      try {
+        const combined = [];
+        for (let index = 0; index < albums.length; index += 1) {
+          const album = albums[index];
+          setStatus(`Loading profile album ${index + 1}/${albums.length}`, true);
+          const media = await fetchAlbumMedia(album);
+          resultState.mediaByAlbum.set(album.url || album.title || String(index), media);
+          media.filter((item) => mediaTypeAllowed(item.type)).forEach((item) => combined.push({ album, media: item }));
+        }
+        resultPreviewScrollEl.innerHTML = '';
+        const io = ensureResultObserver();
+        combined.forEach(({ album, media }) => {
+          const item = makeFeedItem(album, media);
+          resultPreviewScrollEl.appendChild(item);
+          io.observe(item);
+        });
+        Array.from(resultPreviewScrollEl.children).slice(0, 3).forEach(attachMedia);
+        resultPreviewEmptyEl.style.display = combined.length ? 'none' : '';
+        resultPreviewEmptyEl.textContent = combined.length ? '' : 'No profile media matches the selected type.';
+        setStatus(`Profile preview loaded: ${combined.length} item(s)`, true);
+      } catch (error) {
+        setStatus('Profile preview failed: ' + (error.message || error), false);
+      } finally {
+        resultPreviewLoadingEl.hidden = true;
+      }
+    }
+
+    async function downloadProfileAlbums() {
+      const albums = currentProfileAlbums();
+      if (!albums.length) { setStatus('No profile albums to download', false); return; }
+      await saveBackendSettings();
+      let completed = 0;
+      const results = [];
+      for (let index = 0; index < albums.length; index += 1) {
+        const album = albums[index];
+        setStatus(`Downloading profile album ${index + 1}/${albums.length}: ${album.title || ''}`, true);
+        const result = await triggerAlbumDownload(album, null);
+        if (result) results.push(result.data || result);
+        completed += 1;
+      }
+      const payload = { ok: true, data: { completed, albums: albums.length, results } };
+      showJson(payload);
+      setStatus(`Profile download finished: ${completed}/${albums.length}`, true);
+    }
+
+    async function fetchAlbumBatch() {
+      const source = document.getElementById('feedSource').value;
+      const albumLimit = Math.max(1, Number(document.getElementById('feedAlbumsPerBatch').value || 4));
+      const page = feedState.page;
+      let url;
+      if (source === 'search') {
+        const keyword = encodeURIComponent(searchQueryFromInput('feedKeyword') || 'test');
+        url = `/api/search?keyword=${keyword}&page=${page}&limit=${page}&${albumQueryParams()}`;
+      } else if (source === 'profile' || source === 'profileReposts') {
+        const rawProfile = document.getElementById('feedProfileName').value || document.getElementById('profileName').value || '';
+        const profile = encodeURIComponent(rawProfile);
+        if (!profile) throw new Error('Enter a profile username or URL for the feed.');
+        url = source === 'profileReposts'
+          ? `/api/profile?profile=${profile}&page=${page}&limit=${page}&content=reposts&${albumQueryParams()}`
+          : `/api/profile?profile=${profile}&page=${page}&limit=${page}&content=albums&${albumQueryParams()}`;
+      } else {
+        const isNew = source === 'exploreNew' ? 'true' : 'false';
+        url = `/api/explore?page=${page}&limit=${page}&new=${isNew}&${albumQueryParams()}`;
+      }
+      const res = await getJson(url);
+      feedState.page = page + 1;
+      const albums = Array.isArray(res.data) ? res.data : (Array.isArray(res.data && res.data.albums) ? res.data.albums : []);
+      return visibleAlbums(albums).filter((a) => {
+        const key = a.url || a.title;
+        if (!key || feedState.seenAlbums.has(key)) return false;
+        feedState.seenAlbums.add(key);
+        return true;
+      }).slice(0, albumLimit);
+    }
+
+    function albumPathFromUrl(url) {
+      if (!url) return '';
+      const match = url.match(/\/a\/([A-Za-z0-9]+)/);
+      return match ? match[1] : url;
+    }
+
+    async function fetchAlbumMedia(album) {
+      const path = albumPathFromUrl(album.url);
+      if (!path) return [];
+      try {
+        const res = await getJson(`/api/album/info?path=${encodeURIComponent(path)}`);
+        const data = res.data || {};
+        const media = Array.isArray(data.media) ? data.media : [];
+        return media;
+      } catch {
+        return [];
+      }
+    }
+
+    async function loadMoreFeed() {
+      if (feedState.loadingMore || feedState.finished) return;
+      feedState.loadingMore = true;
+      feedLoadingEl.hidden = false;
+      try {
+        const filter = document.getElementById('feedFilter').value;
+        const itemsPerAlbum = Math.max(1, Number(document.getElementById('feedItemsPerAlbum').value || 6));
+        const albums = await fetchAlbumBatch();
+        if (albums.length === 0) {
+          feedState.finished = true;
+          if (feedScrollEl.children.length === 0) {
+            feedEmptyEl.textContent = 'No albums returned.';
+            feedEmptyEl.style.display = '';
+          }
+          return;
+        }
+        const io = ensureFeedObserver();
+        // Fetch albums' media in parallel for speed
+        const mediaResults = await Promise.all(albums.map(fetchAlbumMedia));
+        albums.forEach((album, ai) => {
+          const media = mediaResults[ai] || [];
+          let added = 0;
+          for (const m of media) {
+            if (added >= itemsPerAlbum) break;
+            if (filter !== 'all' && m.type !== filter) continue;
+            if (!m.url || feedState.seenMedia.has(m.url)) continue;
+            feedState.seenMedia.add(m.url);
+            const item = makeFeedItem(album, m);
+            feedScrollEl.appendChild(item);
+            io.observe(item);
+            added += 1;
+          }
+        });
+        if (feedScrollEl.children.length > 0) feedEmptyEl.style.display = 'none';
+      } catch (err) {
+        setStatus('Feed error: ' + (err.message || err), false);
+      } finally {
+        feedState.loadingMore = false;
+        feedLoadingEl.hidden = true;
+      }
+      // Eager continuous autoload: keep pre-buffering ahead
+      const eager = document.getElementById('feedEager').value === 'true';
+      if (eager && !feedState.finished && feedScrollEl.children.length < 200) {
+        setTimeout(loadMoreFeed, 200);
+      }
+    }
+
+    function resetFeed() {
+      if (feedState.io) { feedState.io.disconnect(); feedState.io = null; }
+      feedScrollEl.innerHTML = '';
+      feedState.page = 1;
+      feedState.albumQueue = [];
+      feedState.seenAlbums.clear();
+      feedState.seenMedia.clear();
+      feedState.loadingMore = false;
+      feedState.finished = false;
+      feedEmptyEl.textContent = 'Press Start Feed to begin.';
+      feedEmptyEl.style.display = '';
+    }
+
+    document.getElementById('feedStart').onclick = () => {
+      saveBackendSettings();
+      resetFeed();
+      feedEmptyEl.textContent = 'Loading first batch…';
+      loadMoreFeed();
+    };
+    document.getElementById('feedReset').onclick = resetFeed;
+
+    function setDesktopMode(on) {
+      const host = document.getElementById('feedHost');
+      host.classList.toggle('desktop', !!on);
+      document.getElementById('feedDesktop').value = on ? 'true' : 'false';
+    }
+    document.getElementById('feedDesktop').onchange = (e) => setDesktopMode(e.target.value === 'true');
+    document.getElementById('feedExitDesktop').onclick = () => setDesktopMode(false);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && document.getElementById('feedHost').classList.contains('desktop')) {
+        setDesktopMode(false);
+      }
+    });
+
+    // Global UI layout (desktop / phone / auto)
+    function applyLayout(mode) {
+      const m = mode === 'desktop' || mode === 'phone' ? mode : 'auto';
+      if (m === 'auto') {
+        document.body.removeAttribute('data-layout');
+      } else {
+        document.body.setAttribute('data-layout', m);
+      }
+      try { localStorage.setItem('eu_layout', m); } catch {}
+      document.getElementById('layoutMode').value = m;
+    }
+    document.getElementById('layoutMode').onchange = (e) => applyLayout(e.target.value);
+    try {
+      const saved = localStorage.getItem('eu_layout');
+      if (saved) applyLayout(saved);
+    } catch {}
+
+    // Default: open feed tab and hide raw JSON pre
+    document.getElementById('feedHost').hidden = false;
+    document.getElementById('output').style.display = 'none';
+
+    bindFormSettingsPersistence();
+    renderHashtagChips();
+    loadBackendState().finally(() => run('health'));
+  </script>
+</body>
+</html>

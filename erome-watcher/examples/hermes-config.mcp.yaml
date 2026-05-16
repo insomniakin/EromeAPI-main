@@ -1,0 +1,14 @@
+# Example MCP config for Hermes
+mcp_servers:
+  erome_watcher:
+    command: "python3"
+    args: ["/absolute/path/to/spikes/erome-watcher/erome_mcp_server.py"]
+    timeout: 120
+    connect_timeout: 30
+
+# After restarting Hermes, tools should appear like:
+# - mcp_erome_watcher_get_profile_snapshot
+# - mcp_erome_watcher_get_album_snapshot
+# - mcp_erome_watcher_diff_profile
+# - mcp_erome_watcher_format_profile_alert
+# - mcp_erome_watcher_get_profile_history

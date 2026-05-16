@@ -1,0 +1,6 @@
+# Example cron job prompt for Hermes
+# Create with: hermes cron create "every 15m"
+# Then use a prompt like this after MCP is configured.
+Every 15 minutes, call mcp_erome_watcher_format_profile_alert for username SOME_USERNAME with persist=true.
+If new_album_count > 0 or removed_album_count > 0, send the telegram_text as the final response.
+If there are no changes, respond with a short no-change message.

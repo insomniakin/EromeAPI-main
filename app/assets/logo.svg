@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="220" viewBox="0 0 820 220" fill="none">
+  <defs>
+    <linearGradient id="neon" x1="92" y1="25" x2="720" y2="180" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#42E8FF"/>
+      <stop offset="0.5" stop-color="#6A6DFF"/>
+      <stop offset="1" stop-color="#E86BFF"/>
+    </linearGradient>
+    <filter id="glow" x="0" y="0" width="820" height="220" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="820" height="220" rx="28" fill="#04060C"/>
+  <g filter="url(#glow)">
+    <rect x="40" y="30" width="160" height="160" rx="40" stroke="url(#neon)" stroke-width="8"/>
+    <path d="M115 68V127C115 145 101 159 83 159C69 159 58 149 58 136C58 122 70 112 86 115C95 116 102 120 108 125V68H115Z" fill="url(#neon)"/>
+    <path d="M115 68C121 81 133 91 149 95V105C133 101 121 92 115 80V68Z" fill="url(#neon)"/>
+    <circle cx="87" cy="136" r="19" fill="url(#neon)"/>
+    <text x="240" y="138" fill="url(#neon)" font-family="Space Grotesk, Segoe UI, sans-serif" font-size="110" font-weight="700">EroTok</text>
+  </g>
+</svg>

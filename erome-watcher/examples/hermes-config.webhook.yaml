@@ -1,0 +1,8 @@
+# Example webhook route config for a custom external watcher posting to Hermes
+platforms:
+  webhook:
+    enabled: true
+    extra:
+      host: "0.0.0.0"
+      port: 8644
+      secret: "replace-with-strong-secret"

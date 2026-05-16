@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EroTok Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: "#05060c",
+              panel: "#0f1320",
+              glowCyan: "#3dd9ff",
+              glowBlue: "#4f7cff",
+              glowPink: "#d95dff",
+            },
+            boxShadow: {
+              neon: "0 0 35px rgba(61, 217, 255, 0.4), 0 0 60px rgba(217, 93, 255, 0.3)",
+            },
+            fontFamily: {
+              display: ['"Space Grotesk"', '"Segoe UI"', "sans-serif"],
+            },
+            keyframes: {
+              floatIn: {
+                "0%": { opacity: "0", transform: "translateY(12px) scale(0.98)" },
+                "100%": { opacity: "1", transform: "translateY(0) scale(1)" },
+              },
+            },
+            animation: {
+              floatIn: "floatIn 500ms ease-out both",
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  </head>
+  <body class="min-h-screen bg-ink text-slate-100">
+    <div class="pointer-events-none fixed inset-0 opacity-70">
+      <div class="absolute -left-20 top-0 h-80 w-80 rounded-full bg-cyan-500/20 blur-3xl"></div>
+      <div class="absolute right-0 top-24 h-96 w-96 rounded-full bg-fuchsia-500/20 blur-3xl"></div>
+      <div class="absolute bottom-0 left-1/4 h-80 w-80 rounded-full bg-blue-500/15 blur-3xl"></div>
+    </div>
+    <div id="root" class="relative z-10"></div>
+
+    <script type="text/babel">
+      const { useMemo, useState } = React;
+
+      function toPath(input) {
+        const value = String(input || "").trim();
+        if (!value) return "";
+        try {
+          const parsed = new URL(value);
+          const chunk = parsed.pathname.split("/").filter(Boolean).pop();
+          return chunk || value;
+        } catch {
+          return value;
+        }
+      }
+
+      function pretty(data) {
+        return JSON.stringify(data, null, 2);
+      }
+
+      function App() {
+        const [active, setActive] = useState("search");
+        const [busy, setBusy] = useState(false);
+        const [status, setStatus] = useState("Ready");
+        const [result, setResult] = useState("");
+
+        const [keyword, setKeyword] = useState("texas");
+        const [searchPage, setSearchPage] = useState(1);
+        const [searchLimit, setSearchLimit] = useState(1);
+
+        const [explorePage, setExplorePage] = useState(1);
+        const [exploreLimit, setExploreLimit] = useState(1);
+        const [exploreNew, setExploreNew] = useState(false);
+
+        const [albumPath, setAlbumPath] = useState("");
+
+        const tabs = useMemo(
+          () => [
+            { key: "search", label: "Search" },
+            { key: "explore", label: "Explore" },
+            { key: "album", label: "Album" },
+            { key: "health", label: "Health" },
+          ],
+          []
+        );
+
+        async function callApi(url, method = "GET", body = undefined) {
+          setBusy(true);
+          setStatus("Loading...");
+          try {
+            const response = await fetch(url, {
+              method,
+              headers: { "Content-Type": "application/json" },
+              body: body ? JSON.stringify(body) : undefined,
+            });
+            const data = await response.json();
+            if (!response.ok || data.ok === false) {
+              throw new Error(data.error || `Request failed (${response.status})`);
+            }
+            setResult(pretty(data));
+            setStatus("Success");
+          } catch (error) {
+            setStatus(`Error: ${error.message}`);
+          } finally {
+            setBusy(false);
+          }
+        }
+
+        return (
+          <main className="mx-auto max-w-7xl px-4 py-8 md:px-8 md:py-10">
+            <section className="animate-floatIn rounded-2xl border border-white/10 bg-panel/80 p-5 backdrop-blur-xl md:p-8 shadow-neon">
+              <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-4">
+                  <img
+                    src="/app/assets/logo.svg"
+                    alt="EroTok logo"
+                    className="h-16 w-auto rounded-xl border border-white/15 bg-black/30 p-2"
+                  />
+                  <div>
+                    <h1 className="font-display text-3xl font-bold tracking-tight md:text-4xl">
+                      EroTok Console
+                    </h1>
+                    <p className="mt-1 text-sm text-slate-300 md:text-base">
+                      React + Tailwind frontend running on your existing Node bridge.
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-cyan-300/30 bg-cyan-400/10 px-4 py-2 text-sm text-cyan-100">
+                  {status}
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-6 grid gap-6 lg:grid-cols-[380px_1fr]">
+              <div className="animate-floatIn rounded-2xl border border-white/10 bg-panel/70 p-4 backdrop-blur-xl [animation-delay:120ms]">
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActive(tab.key)}
+                      className={[
+                        "rounded-full px-4 py-2 text-sm font-medium transition",
+                        active === tab.key
+                          ? "bg-gradient-to-r from-cyan-400 to-fuchsia-500 text-slate-950"
+                          : "bg-slate-800/80 text-slate-200 hover:bg-slate-700/90",
+                      ].join(" ")}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {active === "search" && (
+                  <div className="space-y-3">
+                    <label className="block text-xs uppercase tracking-wide text-slate-400">Keyword</label>
+                    <input
+                      className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2"
+                      value={keyword}
+                      onChange={(e) => setKeyword(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs uppercase tracking-wide text-slate-400">Page</label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2"
+                          value={searchPage}
+                          onChange={(e) => setSearchPage(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs uppercase tracking-wide text-slate-400">Limit</label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2"
+                          value={searchLimit}
+                          onChange={(e) => setSearchLimit(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        callApi(
+                          `/api/search?keyword=${encodeURIComponent(keyword)}&page=${searchPage}&limit=${searchLimit}`
+                        )
+                      }
+                      className="w-full rounded-lg bg-gradient-to-r from-cyan-400 to-blue-500 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+                    >
+                      Run Search
+                    </button>
+                  </div>
+                )}
+
+                {active === "explore" && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs uppercase tracking-wide text-slate-400">Page</label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2"
+                          value={explorePage}
+                          onChange={(e) => setExplorePage(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs uppercase tracking-wide text-slate-400">Limit</label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2"
+                          value={exploreLimit}
+                          onChange={(e) => setExploreLimit(Number(e.target.value) || 1)}
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={exploreNew}
+                        onChange={(e) => setExploreNew(e.target.checked)}
+                      />
+                      Use Explore New mode
+                    </label>
+                    <button
+                      disabled={busy}
+                      onClick={() =>
+                        callApi(
+                          `/api/explore?page=${explorePage}&limit=${exploreLimit}&new=${exploreNew}`
+                        )
+                      }
+                      className="w-full rounded-lg bg-gradient-to-r from-fuchsia-400 to-cyan-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+                    >
+                      Run Explore
+                    </button>
+                  </div>
+                )}
+
+                {active === "album" && (
+                  <div className="space-y-3">
+                    <label className="block text-xs uppercase tracking-wide text-slate-400">Album Path Or URL</label>
+                    <input
+                      className="w-full rounded-lg border border-white/10 bg-slate-900/90 px-3 py-2"
+                      value={albumPath}
+                      onChange={(e) => setAlbumPath(e.target.value)}
+                      placeholder="RHoERFQP or full URL"
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        disabled={busy}
+                        onClick={() => callApi(`/api/album/info?path=${encodeURIComponent(toPath(albumPath))}`)}
+                        className="rounded-lg bg-gradient-to-r from-blue-400 to-cyan-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+                      >
+                        Album Info
+                      </button>
+                      <button
+                        disabled={busy}
+                        onClick={() => callApi(`/api/album/content?path=${encodeURIComponent(toPath(albumPath))}`)}
+                        className="rounded-lg bg-gradient-to-r from-cyan-300 to-fuchsia-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+                      >
+                        Album Content
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {active === "health" && (
+                  <div className="space-y-3">
+                    <p className="text-sm text-slate-300">Check bridge status and backend readiness.</p>
+                    <button
+                      disabled={busy}
+                      onClick={() => callApi("/health")}
+                      className="w-full rounded-lg bg-gradient-to-r from-emerald-300 to-cyan-400 px-4 py-2 font-semibold text-slate-950 disabled:opacity-50"
+                    >
+                      Run Health Check
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => callApi("/api/diagnostics")}
+                      className="w-full rounded-lg bg-slate-700 px-4 py-2 font-semibold text-slate-100 disabled:opacity-50"
+                    >
+                      Diagnostics
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="animate-floatIn rounded-2xl border border-white/10 bg-panel/70 p-4 backdrop-blur-xl [animation-delay:220ms]">
+                <div className="mb-3 text-xs uppercase tracking-[0.15em] text-slate-400">Response</div>
+                <pre className="max-h-[70vh] overflow-auto rounded-xl border border-white/10 bg-black/40 p-4 text-sm text-slate-100">
+                  {result || "No output yet. Run an action from the left panel."}
+                </pre>
+              </div>
+            </section>
+          </main>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    </script>
+  </body>
+</html>

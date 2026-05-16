@@ -1,0 +1,8 @@
+{
+  "username": "example_user",
+  "summary": "Erome update for example_user\nAlbums: 12 -> 14\nNew albums: 2\n- New album one — https://www.erome.com/a/AAAA1111\n- New album two — https://www.erome.com/a/BBBB2222",
+  "telegram_text": "🔎 Erome update: example_user\nAlbums: 12 → 14\n🆕 New: 2\n• New album one — https://www.erome.com/a/AAAA1111\n• New album two — https://www.erome.com/a/BBBB2222",
+  "discord_text": "**Erome update:** `example_user`\nAlbums: **12 → 14**\n**New albums:** 2\n- New album one — https://www.erome.com/a/AAAA1111\n- New album two — https://www.erome.com/a/BBBB2222",
+  "new_album_count": 2,
+  "removed_album_count": 0
+}
