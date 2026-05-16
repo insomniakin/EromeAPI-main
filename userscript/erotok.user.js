@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         EroTok Mini
 // @namespace    https://github.com/insomniakin/EromeAPI-main
-// @version      0.1.1
+// @version      0.1.2
 // @description  Requires the local EroTok GUI/API from GitHub. Adds an EroTok Mini panel for public Erome search, preview, and downloads.
 // @author       cjordanhot
+// @copyright   2026, cjordanhot
+// @license     BSD-2-Clause
 // @match        https://www.erome.com/*
 // @homepageURL  https://github.com/insomniakin/EromeAPI-main
 // @supportURL   https://github.com/insomniakin/EromeAPI-main/issues
@@ -15,6 +17,9 @@
 // @connect      github.com
 // @run-at       document-idle
 // ==/UserScript==
+
+// Copyright (c) 2026 cjordanhot.
+// SPDX-License-Identifier: BSD-2-Clause
 
 (function () {
   'use strict';

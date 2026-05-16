@@ -14,6 +14,24 @@ EroTok Mini - local GUI/API companion for public Erome pages
 Adds a floating EroTok Mini panel to public Erome pages. Requires the local EroTok GUI/API from GitHub for search, preview, and downloads.
 ```
 
+## License And Copyright
+
+Userscript metadata for SleazyFork:
+
+```javascript
+// @copyright   2026, cjordanhot
+// @license     BSD-2-Clause
+```
+
+The userscript source also includes:
+
+```javascript
+// Copyright (c) 2026 cjordanhot.
+// SPDX-License-Identifier: BSD-2-Clause
+```
+
+The full project uses the BSD 2-Clause license. Keep the repository `LICENSE` file and any existing copyright notices with redistributed copies.
+
 ## Required GitHub Install
 
 EroTok Mini is not a standalone downloader. The userscript is a browser panel that talks to the local EroTok GUI/API server running on your computer.
