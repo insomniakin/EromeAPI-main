@@ -143,6 +143,6 @@ The full local GUI includes a QR-first support card for `$cjordanhot`. Scan the 
 
 ## Project Links
 
-- GitHub: https://github.com/insomniakin/EromeAPI-main
-- Userscript source: https://github.com/insomniakin/EromeAPI-main/blob/main/userscript/erotok.user.js
-- Full local app URL after install: http://127.0.0.1:3000/
+- GitHub: [https://github.com/insomniakin/EromeAPI-main](https://github.com/insomniakin/EromeAPI-main)
+- Userscript source: [https://github.com/insomniakin/EromeAPI-main/blob/main/userscript/erotok.user.js](https://github.com/insomniakin/EromeAPI-main/blob/main/userscript/erotok.user.js)
+- Full local app URL after install: [http://127.0.0.1:3000/](http://127.0.0.1:3000/)
