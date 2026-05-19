@@ -117,7 +117,7 @@ class ApiTests(unittest.TestCase):
 
         albums = api.get_all_album_data("#redhair #outdoor", page=1, limit=1)
 
-        self.assertEqual(fake_session.requests[0]["url"], "https://www.erome.com/search?q=redhair+outdoor&page=1")
+        self.assertEqual(fake_session.requests[0]["url"], "https://www.erome.com/search?q=%23redhair+%23outdoor&page=1")
         self.assertEqual([album["url"] for album in albums], ["https://www.erome.com/a/MATCH1"])
         self.assertEqual(albums[0]["tags"], ["redhair", "outdoor"])
         self.assertEqual(albums[0]["matched_hashtags"], ["redhair", "outdoor"])
@@ -152,9 +152,77 @@ class ApiTests(unittest.TestCase):
 
         albums = api.get_all_album_data("#alternative girl, #egirl", page=1, limit=1)
 
-        self.assertEqual(fake_session.requests[0]["url"], "https://www.erome.com/search?q=alternative+girl+egirl&page=1")
+        self.assertEqual(fake_session.requests[0]["url"], "https://www.erome.com/search?q=%23alternative+girl+%23egirl&page=1")
         self.assertEqual([album["url"] for album in albums], ["https://www.erome.com/a/MATCH1"])
         self.assertEqual(albums[0]["matched_hashtags"], ["alternative girl", "egirl"])
+
+    def test_search_match_modes_filter_plain_keywords(self):
+        api = Api()
+        search_html = """
+                <div id="albums">
+                    <div class="album">
+                        <a class="album-link" href="/a/BOTH1"><span class="album-title">red blue exact phrase</span></a>
+                    </div>
+                    <div class="album">
+                        <a class="album-link" href="/a/RED2"><span class="album-title">red solo album</span></a>
+                    </div>
+                    <div class="album">
+                        <a class="album-link" href="/a/BLUE3"><span class="album-title">blue solo album</span></a>
+                    </div>
+                </div>
+                """
+
+        api._Api__session = FakeSession([FakeResponse(search_html)])
+        any_albums = api.get_all_album_data("red blue", page=1, limit=1, match_mode="any")
+
+        api._Api__session = FakeSession([FakeResponse(search_html)])
+        all_albums = api.get_all_album_data("red blue", page=1, limit=1, match_mode="all")
+
+        api._Api__session = FakeSession([FakeResponse(search_html)])
+        exact_albums = api.get_all_album_data("red blue exact phrase", page=1, limit=1, match_mode="exact")
+
+        self.assertEqual([album["url"] for album in any_albums], [
+            "https://www.erome.com/a/BOTH1",
+            "https://www.erome.com/a/RED2",
+            "https://www.erome.com/a/BLUE3",
+        ])
+        self.assertEqual([album["url"] for album in all_albums], ["https://www.erome.com/a/BOTH1"])
+        self.assertEqual([album["url"] for album in exact_albums], ["https://www.erome.com/a/BOTH1"])
+
+    def test_combo_match_requires_requested_metadata_tags_and_allows_extra_tags(self):
+        api = Api()
+        search_html = """
+                <div id="albums">
+                    <div class="album">
+                        <a class="album-link" href="/a/ONLY1"><span class="album-title">Requested combo</span></a>
+                    </div>
+                    <div class="album">
+                        <a class="album-link" href="/a/EXTRA2"><span class="album-title">Requested combo plus cosplay</span></a>
+                    </div>
+                </div>
+                """
+        only_combo_html = """
+                <a href="/tag/redhair">redhair</a>
+                <a href="/tag/outdoor">outdoor</a>
+                """
+        extra_combo_html = """
+                <a href="/tag/redhair">redhair</a>
+                <a href="/tag/outdoor">outdoor</a>
+                <a href="/tag/cosplay">cosplay</a>
+                """
+        fake_session = FakeSession(
+            [
+                FakeResponse(search_html),
+                FakeResponse(only_combo_html),
+                FakeResponse(extra_combo_html),
+            ]
+        )
+        api._Api__session = fake_session
+
+        albums = api.get_all_album_data("#redhair #outdoor", page=1, limit=1, match_mode="combo")
+
+        self.assertEqual([album["url"] for album in albums], ["https://www.erome.com/a/ONLY1", "https://www.erome.com/a/EXTRA2"])
+        self.assertEqual(albums[0]["matched_hashtags"], ["redhair", "outdoor"])
 
     def test_album_content_returns_absolute_media_urls(self):
         api = Api()
@@ -402,6 +470,21 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(downloaded["status"], "downloaded")
             with open(downloaded["path"], "rb") as media_file:
                 self.assertEqual(media_file.read(), b"media-bytes")
+
+    def test_download_media_accepts_reddit_media_hosts(self):
+        api = Api()
+        fake_session = FakeSession([FakeResponse(content=b"reddit-image")])
+        api._Api__session = fake_session
+
+        with TemporaryDirectory() as temp_dir:
+            downloaded = api.download_media("https://i.redd.it/photo.jpg?width=1080", directory=temp_dir)
+
+            self.assertEqual(downloaded["filename"], "photo.jpg")
+            self.assertEqual(downloaded["status"], "downloaded")
+            self.assertEqual(fake_session.requests[0]["url"], "https://i.redd.it/photo.jpg?width=1080")
+            self.assertEqual(fake_session.requests[0]["headers"]["referer"], "https://www.reddit.com/")
+            with open(downloaded["path"], "rb") as media_file:
+                self.assertEqual(media_file.read(), b"reddit-image")
 
     def test_change_version_content_uses_public_version_route(self):
         api = Api()

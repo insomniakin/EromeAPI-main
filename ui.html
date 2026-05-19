@@ -122,6 +122,13 @@
     .muted { color: var(--muted); }
     .stack { display: grid; gap: 10px; }
     label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 700; }
+    label.inline-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+    }
+    label.inline-toggle input { width: auto; accent-color: var(--brand); }
     input, select, textarea, button {
       width: 100%;
       border: 1px solid var(--line);
@@ -261,10 +268,31 @@
     }
     .album-card-mini-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 6px;
     }
     .album-card-mini-actions button { padding: 7px; font-size: 11px; }
+    .album-card-mini.history-seen { border-color: rgba(52, 211, 153, 0.55); }
+    .album-card-mini.history-skipped { opacity: 0.72; }
+    .album-card-mini.history-saved { box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.35); }
+    .history-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .history-chip {
+      width: auto;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .history-chip.seen { color: #bbf7d0; border-color: rgba(52, 211, 153, 0.45); }
+    .history-chip.skipped { color: #fecaca; border-color: rgba(248, 113, 113, 0.45); }
+    .history-chip.saved { color: #a5f3fc; border-color: rgba(34, 211, 238, 0.45); }
     .hashtag-panel {
       display: grid;
       gap: 12px;
@@ -532,6 +560,23 @@
         <textarea id="hideTerms" placeholder="skip words, @names, #tags"></textarea>
       </label>
 
+      <div class="grid3">
+        <label>Hide seen albums
+          <select id="hideSeenAlbums"><option value="false">Off</option><option value="true">On</option></select>
+        </label>
+        <label>Hide skipped albums
+          <select id="hideSkippedAlbums"><option value="true">On</option><option value="false">Off</option></select>
+        </label>
+        <label>Hide saved albums
+          <select id="hideSavedAlbums"><option value="false">Off</option><option value="true">On</option></select>
+        </label>
+      </div>
+      <div class="grid3">
+        <button id="clearSeenAlbums" type="button">Clear seen</button>
+        <button id="clearSkippedAlbums" type="button">Clear skipped</button>
+        <button id="clearSavedAlbums" type="button">Clear saved</button>
+      </div>
+
       <div class="hashtag-panel">
         <div class="hashtag-row">
           <label><span class="hashtag-kicker">Add hashtags</span>
@@ -560,6 +605,57 @@
 
       <div class="pane active stack" data-pane="feed">
         <div class="muted">TikTok-style vertical feed. Scrolls one album-item at a time.</div>
+        <div class="result-tools">
+          <div class="grid2">
+            <label>Feed network
+              <select id="feedNetwork">
+                <option value="erome" selected>Erome only</option>
+                <option value="reddit">Reddit only</option>
+                <option value="both">Both</option>
+              </select>
+            </label>
+            <label>Reddit items per batch<input id="redditItemsPerBatch" type="number" min="1" max="50" value="10"></label>
+          </div>
+          <label>Reddit client ID
+            <input id="redditClientId" placeholder="Installed app client ID or web app ID">
+          </label>
+          <label>Reddit client secret
+            <input id="redditClientSecret" type="password" autocomplete="off" placeholder="Web apps only; leave blank for installed apps">
+          </label>
+          <div class="grid2">
+            <label>Reddit redirect URI
+              <input id="redditRedirectUri" readonly value="http://127.0.0.1:3000/api/reddit/callback">
+            </label>
+            <button id="redditCopyRedirect" type="button">Copy redirect URI</button>
+          </div>
+          <div class="grid3">
+            <button id="redditConnect" type="button">Connect Reddit</button>
+            <button id="redditRefresh" type="button">Refresh Reddit</button>
+            <button id="redditDisconnect" type="button">Disconnect</button>
+          </div>
+          <div id="redditStatus" class="muted">Reddit not connected.</div>
+          <div class="grid3">
+            <label>Reddit feed
+              <select id="redditFeedKind">
+                <option value="home" selected>Home / best</option>
+                <option value="hot">Home / hot</option>
+                <option value="new">Home / new</option>
+                <option value="subreddit">Subreddit(s)</option>
+                <option value="search">Search</option>
+              </select>
+            </label>
+            <label>Subreddit(s)<input id="redditSubreddit" placeholder="all, pics, videos"></label>
+            <label>Search sort
+              <select id="redditSort">
+                <option value="hot" selected>Hot</option>
+                <option value="new">New</option>
+                <option value="top">Top</option>
+                <option value="relevance">Relevance</option>
+              </select>
+            </label>
+          </div>
+          <label>Reddit search query<input id="redditQuery" placeholder="Optional search text"></label>
+        </div>
         <label>Source
           <select id="feedSource">
             <option value="explore">Explore</option>
@@ -571,6 +667,15 @@
         </label>
         <label>Keywords / Hashtags (for Search)
           <textarea id="feedKeyword" placeholder="travel, #outdoor, redhair"></textarea>
+        </label>
+        <label>Keyword match mode
+          <select id="feedMatchMode">
+            <option value="all" selected>All keywords</option>
+            <option value="any">Any keyword</option>
+            <option value="exact">Exact phrase</option>
+            <option value="combo">Only this combo</option>
+            <option value="site">Site default</option>
+          </select>
         </label>
         <label>Profile username or URL (for Profile sources)<input id="feedProfileName" placeholder="username or https://www.erome.com/username"></label>
         <label>Show
@@ -598,6 +703,10 @@
             </select>
           </label>
         </div>
+        <label class="inline-toggle">
+          <input id="feedStartMuted" type="checkbox" checked>
+          <span>Start videos muted</span>
+        </label>
         <label>Min video length (seconds, 0 = no filter)
           <input id="feedMinSec" type="number" min="0" value="0">
         </label>
@@ -610,6 +719,15 @@
       <div class="pane stack" data-pane="search">
         <label>Keywords / Hashtags
           <textarea id="searchKeyword" placeholder="travel, #outdoor, redhair">test</textarea>
+        </label>
+        <label>Keyword match mode
+          <select id="searchMatchMode">
+            <option value="all" selected>All keywords</option>
+            <option value="any">Any keyword</option>
+            <option value="exact">Exact phrase</option>
+            <option value="combo">Only this combo</option>
+            <option value="site">Site default</option>
+          </select>
         </label>
         <label>Search Type
           <select id="searchHidden">
@@ -798,11 +916,14 @@
       '#skinny alternative', '#alternativa girl'
     ];
     let selectedHashtags = [];
+    let albumHistory = { seen: {}, skipped: {}, saved: {} };
+    let redditStatusState = { configured: false, connected: false, username: '', redirect_uri: '' };
     const FORM_SETTING_IDS = [
-      'hideTerms', 'hashtagTerms',
-      'feedSource', 'feedKeyword', 'feedProfileName', 'feedFilter', 'feedAlbumsPerBatch',
-      'feedItemsPerAlbum', 'feedEager', 'feedDesktop', 'feedMinSec',
-      'searchKeyword', 'searchHidden', 'searchPage', 'searchLimit',
+      'hideTerms', 'hideSeenAlbums', 'hideSkippedAlbums', 'hideSavedAlbums', 'hashtagTerms',
+      'feedNetwork', 'feedSource', 'feedKeyword', 'feedMatchMode', 'feedProfileName', 'feedFilter', 'feedAlbumsPerBatch',
+      'feedItemsPerAlbum', 'feedEager', 'feedDesktop', 'feedStartMuted', 'feedMinSec',
+      'redditClientId', 'redditFeedKind', 'redditSubreddit', 'redditQuery', 'redditItemsPerBatch', 'redditSort',
+      'searchKeyword', 'searchMatchMode', 'searchHidden', 'searchPage', 'searchLimit',
       'explorePage', 'exploreLimit', 'exploreNew',
       'profileName', 'profileContent', 'profilePage', 'profileLimit',
       'versionValue', 'albumPath', 'mediaUrl', 'mediaBytes',
@@ -820,6 +941,20 @@
 
     function showJson(data) {
       outputEl.textContent = JSON.stringify(data, null, 2);
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function safeExternalUrl(value) {
+      const raw = String(value || '').trim();
+      return /^https?:\/\//i.test(raw) ? raw.replace(/"/g, '%22') : '#';
     }
 
     function delay(ms) {
@@ -849,6 +984,10 @@
 
     function selectedHiddenOnly() {
       return document.getElementById('albumHiddenOnly').value === 'true';
+    }
+
+    function selectedSearchMatchMode(inputId) {
+      return document.getElementById(inputId)?.value || 'all';
     }
 
     function albumQueryParams(extraHidden = false) {
@@ -926,6 +1065,37 @@
       ]).join(', ');
     }
 
+    function feedSearchQuery() {
+      return searchQueryFromInput('feedKeyword');
+    }
+
+    function hasFeedSearchQuery() {
+      return !!feedSearchQuery();
+    }
+
+    function effectiveEromeFeedSource() {
+      const source = document.getElementById('feedSource').value;
+      return hasFeedSearchQuery() && (source === 'explore' || source === 'exploreNew') ? 'search' : source;
+    }
+
+    function normalizeRedditSearchQuery(value) {
+      return String(value || '')
+        .replace(/(^|\s)#(?=\S)/g, '$1')
+        .replace(/[,;\n\r]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function redditSearchQueryFromInput() {
+      const explicit = document.getElementById('redditQuery').value || '';
+      return normalizeRedditSearchQuery(explicit || feedSearchQuery());
+    }
+
+    function effectiveRedditFeedKind() {
+      const kind = document.getElementById('redditFeedKind').value || 'home';
+      return redditSearchQueryFromInput() ? 'search' : kind;
+    }
+
     function normalizeFilterTerm(value) {
       return String(value || '').trim().replace(/^[@#]+/, '').toLowerCase();
     }
@@ -943,6 +1113,39 @@
       return terms.map(normalizeFilterTerm).join(' ');
     }
 
+    function normalizeAlbumHistory(history) {
+      return {
+        seen: { ...((history && history.seen) || {}) },
+        skipped: { ...((history && history.skipped) || {}) },
+        saved: { ...((history && history.saved) || {}) },
+      };
+    }
+
+    function albumHistoryKey(album = {}) {
+      return albumPathFromUrl(album.url || album.path || '') || String(album.key || album.url || album.title || '').trim();
+    }
+
+    function albumHistoryRecord(album, bucket) {
+      const key = albumHistoryKey(album);
+      return key ? albumHistory[bucket]?.[key] : null;
+    }
+
+    function albumHistoryClasses(album) {
+      return [
+        albumHistoryRecord(album, 'seen') ? 'history-seen' : '',
+        albumHistoryRecord(album, 'skipped') ? 'history-skipped' : '',
+        albumHistoryRecord(album, 'saved') ? 'history-saved' : '',
+      ].filter(Boolean).join(' ');
+    }
+
+    function albumHistoryBadges(album) {
+      const badges = [];
+      if (albumHistoryRecord(album, 'seen')) badges.push('<span class="history-chip seen">Seen</span>');
+      if (albumHistoryRecord(album, 'skipped')) badges.push('<span class="history-chip skipped">Skipped</span>');
+      if (albumHistoryRecord(album, 'saved')) badges.push('<span class="history-chip saved">Saved</span>');
+      return badges.length ? `<div class="history-chip-row">${badges.join('')}</div>` : '';
+    }
+
     function albumMatchesHideTerms(album) {
       const hideTerms = parseSearchTerms(document.getElementById('hideTerms')?.value || '').map(normalizeFilterTerm).filter(Boolean);
       if (!hideTerms.length) return true;
@@ -950,8 +1153,15 @@
       return !hideTerms.some((term) => searchText.includes(term));
     }
 
+    function albumMatchesHistoryFilters(album) {
+      if (document.getElementById('hideSeenAlbums')?.value === 'true' && albumHistoryRecord(album, 'seen')) return false;
+      if (document.getElementById('hideSkippedAlbums')?.value === 'true' && albumHistoryRecord(album, 'skipped')) return false;
+      if (document.getElementById('hideSavedAlbums')?.value === 'true' && albumHistoryRecord(album, 'saved')) return false;
+      return true;
+    }
+
     function visibleAlbums(albums) {
-      return (Array.isArray(albums) ? albums : []).filter(albumMatchesHideTerms);
+      return (Array.isArray(albums) ? albums : []).filter((album) => albumMatchesHideTerms(album) && albumMatchesHistoryFilters(album));
     }
 
     function syncHashtagTermsInput() {
@@ -1065,7 +1275,7 @@
     function collectFormSettings() {
       return FORM_SETTING_IDS.reduce((values, id) => {
         const element = document.getElementById(id);
-        if (element) values[id] = element.value;
+        if (element) values[id] = element.type === 'checkbox' ? String(element.checked) : element.value;
         return values;
       }, {});
     }
@@ -1076,11 +1286,16 @@
         FORM_SETTING_IDS.forEach((id) => {
           const element = document.getElementById(id);
           if (element && Object.prototype.hasOwnProperty.call(formValues, id)) {
-            element.value = formValues[id];
+            if (element.type === 'checkbox') {
+              element.checked = formValues[id] === true || formValues[id] === 'true';
+            } else {
+              element.value = formValues[id];
+            }
           }
         });
         syncDownloadTabFromResultTools();
         setSelectedHashtagsFromValue(document.getElementById('hashtagTerms')?.value || '');
+        applyFeedVideoMutePreference();
       } finally {
         isApplyingSettings = false;
       }
@@ -1119,6 +1334,8 @@
       try {
         const state = await getJson('/api/state');
         const settings = state.data && state.data.settings ? state.data.settings : {};
+        albumHistory = normalizeAlbumHistory(state.data && state.data.albums);
+        if (state.data && state.data.reddit) renderRedditStatus(state.data.reddit);
         document.getElementById('resultDownloadDir').value = settings.download_directory || 'Downloads';
         document.getElementById('resultMediaType').value = settings.media_type || 'all';
         document.getElementById('downloadDir').value = settings.download_directory || 'Downloads';
@@ -1127,6 +1344,146 @@
         applyFormSettings(settings.form_values || {});
       } catch (error) {
         console.warn('Could not load backend state', error);
+      }
+    }
+
+    function renderRedditStatus(status = {}) {
+      redditStatusState = {
+        configured: !!status.configured,
+        connected: !!status.connected,
+        username: status.username || '',
+        has_client_secret: !!status.has_client_secret,
+        redirect_uri: status.redirect_uri || '',
+      };
+      const clientInput = document.getElementById('redditClientId');
+      if (clientInput && status.client_id && !clientInput.value) clientInput.value = status.client_id;
+      const redirectInput = document.getElementById('redditRedirectUri');
+      if (redirectInput && redditStatusState.redirect_uri) redirectInput.value = redditStatusState.redirect_uri;
+      const statusEl = document.getElementById('redditStatus');
+      if (!statusEl) return;
+      if (redditStatusState.connected) {
+        statusEl.textContent = `Reddit connected as ${redditStatusState.username || 'authorized user'}. NSFW access follows that account's Reddit settings.`;
+      } else if (redditStatusState.configured) {
+        statusEl.textContent = redditStatusState.has_client_secret
+          ? 'Reddit client configured with a web-app secret. Your Reddit app redirect URI must exactly match the value above.'
+          : 'Reddit client configured. For web apps, add the client secret before connecting. Your Reddit app redirect URI must exactly match the value above.';
+      } else {
+        statusEl.textContent = 'Reddit not connected. Add a Reddit client ID and use the redirect URI above, then connect.';
+      }
+    }
+
+    async function copyRedditRedirectUri() {
+      const value = document.getElementById('redditRedirectUri').value || redditStatusState.redirect_uri || '';
+      if (!value) {
+        setStatus('Refresh Reddit status first to get the redirect URI.', false);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(value);
+        setStatus('Reddit redirect URI copied', true);
+      } catch {
+        setStatus('Copy failed. Select the redirect URI field and copy it manually.', false);
+      }
+    }
+
+    async function loadRedditStatus() {
+      try {
+        const response = await getJson('/api/reddit/status');
+        renderRedditStatus(response.data || {});
+        return response.data || {};
+      } catch (error) {
+        const statusEl = document.getElementById('redditStatus');
+        if (statusEl) statusEl.textContent = 'Could not load Reddit status: ' + (error.message || error);
+        return null;
+      }
+    }
+
+    async function configureRedditClient() {
+      const clientId = (document.getElementById('redditClientId').value || '').trim();
+      const clientSecret = (document.getElementById('redditClientSecret').value || '').trim();
+      if (!clientId) throw new Error('Enter a Reddit client ID first.');
+      const response = await getJson('/api/reddit/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+      });
+      document.getElementById('redditClientSecret').value = '';
+      renderRedditStatus(response.data || {});
+      return response.data || {};
+    }
+
+    async function connectReddit() {
+      try {
+        await configureRedditClient();
+        window.open('/api/reddit/login', '_blank', 'noopener');
+        setStatus('Reddit login opened. Approve access, then click Refresh Reddit.', true);
+      } catch (error) {
+        setStatus('Reddit connect failed: ' + (error.message || error), false);
+      }
+    }
+
+    async function disconnectReddit() {
+      try {
+        const response = await getJson('/api/reddit/disconnect', { method: 'POST' });
+        renderRedditStatus(response.data || {});
+        setStatus('Reddit disconnected', true);
+      } catch (error) {
+        setStatus('Reddit disconnect failed: ' + (error.message || error), false);
+      }
+    }
+
+    async function loadAlbumHistory() {
+      try {
+        const state = await getJson('/api/albums/history');
+        albumHistory = normalizeAlbumHistory(state.data);
+      } catch (error) {
+        console.warn('Could not load album history', error);
+      }
+    }
+
+    function rerenderAlbumSurfaces() {
+      if (!resultPreviewEl.hidden && resultPreviewEl.classList.contains('grid-mode')) {
+        renderAlbumCards(resultState.allAlbums);
+      }
+    }
+
+    async function markAlbumState(album, action, options = {}) {
+      if (!album) return null;
+      const payload = {
+        action,
+        url: album.url || album.path || '',
+        title: album.title || '',
+        thumb: album.thumb || album.thumb_url || '',
+        source: album.source || 'erome',
+      };
+      try {
+        const response = await getJson('/api/albums/mark', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        albumHistory = normalizeAlbumHistory(response.data && response.data.albums);
+        if (!options.silent) setStatus(`Album marked ${action}`, true);
+        if (options.rerender !== false) rerenderAlbumSurfaces();
+        return response;
+      } catch (error) {
+        if (!options.silent) setStatus('Album history update failed: ' + (error.message || error), false);
+        return null;
+      }
+    }
+
+    async function clearAlbumHistory(bucket) {
+      try {
+        const response = await getJson('/api/albums/clear-history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bucket }),
+        });
+        albumHistory = normalizeAlbumHistory(response.data);
+        rerenderAlbumSurfaces();
+        setStatus(`Cleared ${bucket} album history`, true);
+      } catch (error) {
+        setStatus('Clear history failed: ' + (error.message || error), false);
       }
     }
 
@@ -1141,7 +1498,7 @@
           } else if (id === 'downloadDir' || id === 'downloadPhotos' || id === 'downloadVideos') {
             syncResultToolsFromDownloadTab();
           }
-          if (id === 'hideTerms') {
+          if (['hideTerms', 'hideSeenAlbums', 'hideSkippedAlbums', 'hideSavedAlbums'].includes(id)) {
             if (!resultPreviewEl.hidden && resultPreviewEl.classList.contains('grid-mode')) {
               renderAlbumCards(resultState.allAlbums);
             } else if (resultState.album && resultState.allMedia.length) {
@@ -1161,6 +1518,31 @@
       resultPreviewEl.classList.toggle('grid-mode', !!gridMode);
       document.getElementById('feedHost').hidden = true;
       outputEl.style.display = 'none';
+    }
+
+    function shouldStartVideosMuted() {
+      const toggle = document.getElementById('feedStartMuted');
+      return !toggle || toggle.checked;
+    }
+
+    function applyFeedVideoMutePreference() {
+      const muted = shouldStartVideosMuted();
+      document.querySelectorAll('#feedScroll video, #resultPreviewScroll video').forEach((video) => {
+        video.muted = muted;
+      });
+    }
+
+    function syncFeedMutePreferenceFromVideo(event) {
+      const video = event.currentTarget;
+      const toggle = document.getElementById('feedStartMuted');
+      if (!video || !toggle) return;
+      const muted = video.muted || video.volume === 0;
+      if (toggle.checked === muted) return;
+      toggle.checked = muted;
+      document.querySelectorAll('#feedScroll video, #resultPreviewScroll video').forEach((other) => {
+        if (other !== video && other.muted !== muted) other.muted = muted;
+      });
+      scheduleSettingsSave();
     }
 
     function clearResultPreview() {
@@ -1192,7 +1574,6 @@
           if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
             attachMedia(entry.target);
             if (video) {
-              video.muted = true;
               video.play().catch(() => {});
             }
           } else if (video) {
@@ -1234,20 +1615,27 @@
       resultPreviewEmptyEl.textContent = list.length ? '' : 'No public albums found.';
       list.forEach((album) => {
         const card = document.createElement('div');
-        card.className = 'album-card-mini';
+        card.className = `album-card-mini ${albumHistoryClasses(album)}`.trim();
         const thumb = album.thumb ? proxyUrl(album.thumb) : '';
         card.innerHTML = `
           ${thumb ? `<img src="${thumb}" alt="">` : '<img alt="">'}
           <div class="album-card-mini-body">
             <div class="album-card-mini-title">${escapeHtml(album.title || 'Untitled')}</div>
             <div class="album-card-mini-meta">${escapeHtml(albumMetaText(album))}</div>
+            ${albumHistoryBadges(album)}
             <div class="album-card-mini-actions">
               <button type="button" data-act="preview">Preview</button>
               <button type="button" data-act="download">Download</button>
+              <button type="button" data-act="seen">Seen</button>
+              <button type="button" data-act="skip">Skip</button>
+              <button type="button" data-act="save">Save</button>
             </div>
           </div>`;
         card.querySelector('[data-act="preview"]').onclick = () => previewAlbum(album);
         card.querySelector('[data-act="download"]').onclick = () => triggerAlbumDownload(album, null);
+        card.querySelector('[data-act="seen"]').onclick = () => markAlbumState(album, albumHistoryRecord(album, 'seen') ? 'unsee' : 'seen');
+        card.querySelector('[data-act="skip"]').onclick = () => markAlbumState(album, albumHistoryRecord(album, 'skipped') ? 'unskip' : 'skipped');
+        card.querySelector('[data-act="save"]').onclick = () => markAlbumState(album, albumHistoryRecord(album, 'saved') ? 'unsave' : 'saved');
         grid.appendChild(card);
       });
       resultPreviewScrollEl.appendChild(grid);
@@ -1418,11 +1806,12 @@
       health: () => getJson('/health'),
       search: () => {
         const keyword = encodeURIComponent(searchQueryFromInput('searchKeyword'));
+        const matchMode = encodeURIComponent(selectedSearchMatchMode('searchMatchMode'));
         const page = Number(document.getElementById('searchPage').value || 1);
         const limit = Number(document.getElementById('searchLimit').value || 1);
         const hidden = document.getElementById('searchHidden').value === 'true';
         const route = hidden ? '/api/hidden-search' : '/api/search';
-        return getJson(`${route}?keyword=${keyword}&page=${page}&limit=${limit}&${albumQueryParams(hidden)}`);
+        return getJson(`${route}?keyword=${keyword}&match_mode=${matchMode}&page=${page}&limit=${limit}&${albumQueryParams(hidden)}`);
       },
       explore: () => {
         const page = Number(document.getElementById('explorePage').value || 1);
@@ -1522,6 +1911,17 @@
       renderHashtagChips();
       scheduleSettingsSave();
     };
+    document.getElementById('clearSeenAlbums').onclick = () => clearAlbumHistory('seen');
+    document.getElementById('clearSkippedAlbums').onclick = () => clearAlbumHistory('skipped');
+    document.getElementById('clearSavedAlbums').onclick = () => clearAlbumHistory('saved');
+    document.getElementById('redditCopyRedirect').onclick = copyRedditRedirectUri;
+    document.getElementById('redditConnect').onclick = connectReddit;
+    document.getElementById('redditRefresh').onclick = async () => {
+      await loadRedditStatus();
+      setStatus('Reddit status refreshed', true);
+    };
+    document.getElementById('redditDisconnect').onclick = disconnectReddit;
+    document.getElementById('feedStartMuted').onchange = applyFeedVideoMutePreference;
     document.getElementById('hashtagInput').addEventListener('keydown', (event) => {
       if (event.key !== 'Enter') return;
       event.preventDefault();
@@ -1587,16 +1987,62 @@
     const feedState = {
       running: false,
       page: 1,
+      redditAfter: '',
       albumQueue: [],
       seenAlbums: new Set(),
       seenMedia: new Set(),
       io: null,
       loadingMore: false,
       finished: false,
+      autoSeenAlbums: new Set(),
     };
+
+    const AUTO_SEEN_DWELL_MS = 1500;
+
+    function autoMarkItemSeen(item) {
+      if (!item || !item._album) return;
+      const key = item.dataset.albumPath || item._album.url || '';
+      if (!key || feedState.autoSeenAlbums.has(key)) return;
+      if (item._autoSeenTimer) return;
+      item._autoSeenTimer = setTimeout(() => {
+        item._autoSeenTimer = null;
+        if (!document.body.contains(item)) return;
+        if (feedState.autoSeenAlbums.has(key)) return;
+        if (albumHistoryRecord(item._album, 'seen')) {
+          feedState.autoSeenAlbums.add(key);
+          return;
+        }
+        feedState.autoSeenAlbums.add(key);
+        markAlbumState(item._album, 'seen', { rerender: false }).catch(() => {
+          feedState.autoSeenAlbums.delete(key);
+        });
+      }, AUTO_SEEN_DWELL_MS);
+    }
+
+    function cancelAutoMarkItemSeen(item) {
+      if (item && item._autoSeenTimer) {
+        clearTimeout(item._autoSeenTimer);
+        item._autoSeenTimer = null;
+      }
+    }
+
+    function advanceToNextFeedItem(fromItem) {
+      if (!fromItem) return;
+      let next = fromItem.nextElementSibling;
+      while (next && (next.dataset.filtered === '1' || next.style.display === 'none')) {
+        next = next.nextElementSibling;
+      }
+      if (next && typeof next.scrollIntoView === 'function') {
+        next.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
 
     function proxyUrl(mediaUrl) {
       return `/proxy?url=${encodeURIComponent(mediaUrl)}`;
+    }
+    function mediaDisplayUrl(mediaUrl, source = 'erome') {
+      if (!mediaUrl) return '';
+      return source === 'reddit' ? mediaUrl : proxyUrl(mediaUrl);
     }
     function downloadUrl(mediaUrl) {
       return `/proxy?url=${encodeURIComponent(mediaUrl)}&download=1`;
@@ -1606,16 +2052,17 @@
       if (item.dataset.attached === '1') return;
       const type = item.dataset.type;
       const src = item.dataset.src;
+      const source = item.dataset.source || 'erome';
       if (!src) return;
       if (type === 'video') {
         const video = item.querySelector('video');
         if (video && !video.src) {
-          video.src = proxyUrl(src);
+          video.src = mediaDisplayUrl(src, source);
           video.load();
         }
       } else {
         const img = item.querySelector('img');
-        if (img && !img.src) img.src = proxyUrl(src);
+        if (img && !img.src) img.src = mediaDisplayUrl(src, source);
       }
       item.dataset.attached = '1';
     }
@@ -1652,12 +2099,15 @@
           if (entry.isIntersecting && entry.intersectionRatio > 0.6) {
             activeIdx = idx;
             attachMedia(entry.target);
+            autoMarkItemSeen(entry.target);
             if (video) {
-              video.muted = true;
               video.play().catch(() => {});
             }
-          } else if (video) {
-            try { video.pause(); } catch {}
+          } else {
+            cancelAutoMarkItemSeen(entry.target);
+            if (video) {
+              try { video.pause(); } catch {}
+            }
           }
         });
         if (activeIdx >= 0) updateAttachWindow(activeIdx);
@@ -1670,11 +2120,15 @@
 
     function makeFeedItem(album, media) {
       const item = document.createElement('div');
+      const source = media.source || album.source || 'erome';
+      const isReddit = source === 'reddit';
       item.className = 'feed-item';
       item.dataset.type = media.type;
       item.dataset.src = media.url;
+      item.dataset.source = source;
       item.dataset.attached = '0';
       item.dataset.albumPath = albumPathFromUrl(album.url) || (album.url || '');
+      item._album = album;
 
       const badge = document.createElement('div');
       badge.className = 'feed-badge';
@@ -1683,11 +2137,13 @@
 
       if (media.type === 'video') {
         const video = document.createElement('video');
-        if (media.thumb_url) video.poster = proxyUrl(media.thumb_url);
+        if (media.thumb_url) video.poster = mediaDisplayUrl(media.thumb_url, source);
         video.controls = true;
         video.playsInline = true;
-        video.muted = true;
-        video.loop = true;
+        video.muted = shouldStartVideosMuted();
+        video.addEventListener('volumechange', syncFeedMutePreferenceFromVideo);
+        video.loop = false;
+        video.addEventListener('ended', () => advanceToNextFeedItem(item));
         video.preload = 'none';
         const minSec = Math.max(0, Number(document.getElementById('feedMinSec').value || 0));
         if (minSec > 0) {
@@ -1709,24 +2165,54 @@
 
       const actions = document.createElement('div');
       actions.className = 'feed-actions';
-      const dl = document.createElement('button');
-      dl.type = 'button';
-      dl.title = 'Download this media';
-      dl.textContent = '⬇';
-      dl.onclick = () => downloadMediaToDir(media, album);
-      actions.appendChild(dl);
-      const dlAlbum = document.createElement('button');
-      dlAlbum.title = 'Download whole album, then skip to next';
-      dlAlbum.textContent = '📁';
-      dlAlbum.onclick = () => triggerAlbumDownload(album, item);
-      actions.appendChild(dlAlbum);
+      const download = document.createElement('button');
+      download.type = 'button';
+      download.title = 'Download this media';
+      download.textContent = '⬇';
+      download.onclick = () => downloadMediaToDir(media, album);
+      actions.appendChild(download);
+      if (isReddit) {
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.title = 'Open Reddit source';
+        open.textContent = 'Open';
+        open.onclick = () => window.open(media.permalink || album.url || media.source_url || album.source_url, '_blank', 'noopener');
+        actions.appendChild(open);
+      } else {
+        const dlAlbum = document.createElement('button');
+        dlAlbum.title = 'Download whole album, then skip to next';
+        dlAlbum.textContent = '📁';
+        dlAlbum.onclick = () => triggerAlbumDownload(album, item);
+        actions.appendChild(dlAlbum);
+      }
+      const seen = document.createElement('button');
+      seen.title = 'Mark album seen';
+      seen.textContent = '✓';
+      seen.onclick = () => markAlbumState(album, 'seen', { rerender: false });
+      actions.appendChild(seen);
+      const skip = document.createElement('button');
+      skip.title = 'Skip this album';
+      skip.textContent = '⏭';
+      skip.onclick = async () => {
+        await markAlbumState(album, 'skipped', { rerender: false });
+        skipToNextAlbum(item);
+      };
+      actions.appendChild(skip);
+      const save = document.createElement('button');
+      save.title = 'Save album marker';
+      save.textContent = '★';
+      save.onclick = () => markAlbumState(album, 'saved', { rerender: false });
+      actions.appendChild(save);
       item.appendChild(actions);
 
       const meta = document.createElement('div');
       meta.className = 'feed-meta';
-      const safeTitle = (album.title || '(untitled)').replace(/</g, '&lt;');
-      const albumUrl = album.url || '#';
-      meta.innerHTML = `<div><b>${safeTitle}</b></div><div><a href="${albumUrl}" target="_blank" rel="noopener">Open album ↗</a></div>`;
+      const safeTitle = escapeHtml(album.title || '(untitled)');
+      const albumUrl = safeExternalUrl(album.url || media.permalink || media.source_url);
+      const sourceLabel = isReddit
+        ? `Reddit ${escapeHtml(album.subreddit || '')} ${escapeHtml(album.username || '')}`
+        : 'Erome';
+      meta.innerHTML = `<div><b>${safeTitle}</b></div><div>${sourceLabel} · <a href="${albumUrl}" target="_blank" rel="noopener">Open source ↗</a></div>`;
       item.appendChild(meta);
       return item;
     }
@@ -1833,6 +2319,7 @@
       resultPreviewLoadingEl.hidden = false;
       setStatus('Loading album preview...', true);
       try {
+        await markAlbumState(album, 'seen', { silent: true, rerender: false });
         const result = await getJson(`/api/album/info?path=${encodeURIComponent(path)}`);
         const data = result.data || {};
         resultState.mediaByAlbum.set(album.url || path, data.media || []);
@@ -1907,14 +2394,15 @@
       setStatus(`Profile download finished: ${completed}/${albums.length}`, true);
     }
 
-    async function fetchAlbumBatch() {
-      const source = document.getElementById('feedSource').value;
+    async function fetchEromeAlbumBatch() {
+      const source = effectiveEromeFeedSource();
       const albumLimit = Math.max(1, Number(document.getElementById('feedAlbumsPerBatch').value || 4));
       const page = feedState.page;
       let url;
       if (source === 'search') {
-        const keyword = encodeURIComponent(searchQueryFromInput('feedKeyword') || 'test');
-        url = `/api/search?keyword=${keyword}&page=${page}&limit=${page}&${albumQueryParams()}`;
+        const keyword = encodeURIComponent(feedSearchQuery() || 'test');
+        const matchMode = encodeURIComponent(selectedSearchMatchMode('feedMatchMode'));
+        url = `/api/search?keyword=${keyword}&match_mode=${matchMode}&page=${page}&limit=${page}&${albumQueryParams()}`;
       } else if (source === 'profile' || source === 'profileReposts') {
         const rawProfile = document.getElementById('feedProfileName').value || document.getElementById('profileName').value || '';
         const profile = encodeURIComponent(rawProfile);
@@ -1935,6 +2423,76 @@
         feedState.seenAlbums.add(key);
         return true;
       }).slice(0, albumLimit);
+    }
+
+    async function fetchAlbumBatch() {
+      return fetchEromeAlbumBatch();
+    }
+
+    async function fetchRedditFeedBatch() {
+      if (!redditStatusState.connected) {
+        await loadRedditStatus();
+      }
+      if (!redditStatusState.connected) throw new Error('Connect Reddit before using Reddit feed modes.');
+      const params = new URLSearchParams({
+        kind: effectiveRedditFeedKind(),
+        subreddit: document.getElementById('redditSubreddit').value || '',
+        query: redditSearchQueryFromInput(),
+        sort: document.getElementById('redditSort').value || 'hot',
+        limit: String(Math.max(1, Number(document.getElementById('redditItemsPerBatch').value || 10))),
+      });
+      if (feedState.redditAfter) params.set('after', feedState.redditAfter);
+      const response = await getJson(`/api/reddit/feed?${params.toString()}`);
+      const data = response.data || {};
+      feedState.redditAfter = data.after || '';
+      return Array.isArray(data.items) ? data.items : [];
+    }
+
+    function appendRedditFeedItems(items, filter) {
+      const io = ensureFeedObserver();
+      let added = 0;
+      for (const itemData of items) {
+        const album = itemData.album || {};
+        const media = itemData.media || {};
+        if (filter !== 'all' && media.type !== filter) continue;
+        const mediaKey = media.url || itemData.id;
+        if (!mediaKey || feedState.seenMedia.has(mediaKey)) continue;
+        feedState.seenMedia.add(mediaKey);
+        const item = makeFeedItem(album, media);
+        feedScrollEl.appendChild(item);
+        io.observe(item);
+        added += 1;
+      }
+      return added;
+    }
+
+    async function appendEromeFeedAlbums(albums, filter, itemsPerAlbum) {
+      const io = ensureFeedObserver();
+      let addedTotal = 0;
+      const mediaResults = await Promise.all(albums.map(fetchAlbumMedia));
+      albums.forEach((album, ai) => {
+        const media = mediaResults[ai] || [];
+        let added = 0;
+        for (const m of media) {
+          if (added >= itemsPerAlbum) break;
+          if (filter !== 'all' && m.type !== filter) continue;
+          if (!m.url || feedState.seenMedia.has(m.url)) continue;
+          feedState.seenMedia.add(m.url);
+          const item = makeFeedItem(album, m);
+          feedScrollEl.appendChild(item);
+          io.observe(item);
+          added += 1;
+          addedTotal += 1;
+        }
+      });
+      return addedTotal;
+    }
+
+    async function appendMixedFeedItems(eromeAlbums, redditItems, filter, itemsPerAlbum) {
+      const before = feedScrollEl.children.length;
+      await appendEromeFeedAlbums(eromeAlbums, filter, itemsPerAlbum);
+      appendRedditFeedItems(redditItems, filter);
+      return feedScrollEl.children.length - before;
     }
 
     function albumPathFromUrl(url) {
@@ -1961,34 +2519,32 @@
       feedState.loadingMore = true;
       feedLoadingEl.hidden = false;
       try {
+        const network = document.getElementById('feedNetwork').value || 'erome';
         const filter = document.getElementById('feedFilter').value;
         const itemsPerAlbum = Math.max(1, Number(document.getElementById('feedItemsPerAlbum').value || 6));
-        const albums = await fetchAlbumBatch();
-        if (albums.length === 0) {
+        let added = 0;
+        let emptyBatch = false;
+        if (network === 'reddit') {
+          const redditItems = await fetchRedditFeedBatch();
+          emptyBatch = redditItems.length === 0;
+          added = appendRedditFeedItems(redditItems, filter);
+        } else if (network === 'both') {
+          const [albums, redditItems] = await Promise.all([fetchEromeAlbumBatch(), fetchRedditFeedBatch()]);
+          emptyBatch = albums.length === 0 && redditItems.length === 0;
+          added = await appendMixedFeedItems(albums, redditItems, filter, itemsPerAlbum);
+        } else {
+          const albums = await fetchEromeAlbumBatch();
+          emptyBatch = albums.length === 0;
+          added = await appendEromeFeedAlbums(albums, filter, itemsPerAlbum);
+        }
+        if (emptyBatch || added === 0) {
           feedState.finished = true;
           if (feedScrollEl.children.length === 0) {
-            feedEmptyEl.textContent = 'No albums returned.';
+            feedEmptyEl.textContent = network === 'erome' ? 'No albums returned.' : 'No feed items returned.';
             feedEmptyEl.style.display = '';
           }
           return;
         }
-        const io = ensureFeedObserver();
-        // Fetch albums' media in parallel for speed
-        const mediaResults = await Promise.all(albums.map(fetchAlbumMedia));
-        albums.forEach((album, ai) => {
-          const media = mediaResults[ai] || [];
-          let added = 0;
-          for (const m of media) {
-            if (added >= itemsPerAlbum) break;
-            if (filter !== 'all' && m.type !== filter) continue;
-            if (!m.url || feedState.seenMedia.has(m.url)) continue;
-            feedState.seenMedia.add(m.url);
-            const item = makeFeedItem(album, m);
-            feedScrollEl.appendChild(item);
-            io.observe(item);
-            added += 1;
-          }
-        });
         if (feedScrollEl.children.length > 0) feedEmptyEl.style.display = 'none';
       } catch (err) {
         setStatus('Feed error: ' + (err.message || err), false);
@@ -2007,9 +2563,11 @@
       if (feedState.io) { feedState.io.disconnect(); feedState.io = null; }
       feedScrollEl.innerHTML = '';
       feedState.page = 1;
+      feedState.redditAfter = '';
       feedState.albumQueue = [];
       feedState.seenAlbums.clear();
       feedState.seenMedia.clear();
+      feedState.autoSeenAlbums.clear();
       feedState.loadingMore = false;
       feedState.finished = false;
       feedEmptyEl.textContent = 'Press Start Feed to begin.';
@@ -2060,7 +2618,7 @@
 
     bindFormSettingsPersistence();
     renderHashtagChips();
-    loadBackendState().finally(() => run('health'));
+    loadBackendState().then(loadAlbumHistory).then(loadRedditStatus).finally(() => run('health'));
   </script>
 </body>
 </html>

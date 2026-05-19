@@ -16,6 +16,7 @@ const PROXY_HEADERS = {
 };
 
 const PROXY_AGENT = new https.Agent({ keepAlive: true, maxSockets: 32 });
+const REDDIT_USER_AGENT = "EroTok/1.0 local feed bridge";
 
 function streamProxy(req, res, targetUrlString, options = {}) {
   let target;
@@ -103,6 +104,18 @@ const DEFAULT_STATE = {
     media: {},
     albums: {},
   },
+  albums: {
+    seen: {},
+    skipped: {},
+    saved: {},
+  },
+  reddit: {
+    client_id: "",
+    client_secret: "",
+    redirect_uri: "",
+    oauth_state: "",
+    auth: null,
+  },
 };
 
 const MIME_TYPES = {
@@ -151,6 +164,40 @@ function normalizeState(rawState = {}) {
       media: { ...((rawState.downloaded && rawState.downloaded.media) || {}) },
       albums: { ...((rawState.downloaded && rawState.downloaded.albums) || {}) },
     },
+    albums: {
+      seen: { ...((rawState.albums && rawState.albums.seen) || {}) },
+      skipped: { ...((rawState.albums && rawState.albums.skipped) || {}) },
+      saved: { ...((rawState.albums && rawState.albums.saved) || {}) },
+    },
+    reddit: {
+      client_id: String((rawState.reddit && rawState.reddit.client_id) || ""),
+      client_secret: String((rawState.reddit && rawState.reddit.client_secret) || ""),
+      redirect_uri: String((rawState.reddit && rawState.reddit.redirect_uri) || ""),
+      oauth_state: String((rawState.reddit && rawState.reddit.oauth_state) || ""),
+      auth: rawState.reddit && rawState.reddit.auth ? { ...rawState.reddit.auth } : null,
+    },
+  };
+}
+
+function publicRedditStatus(redditState = {}) {
+  const auth = redditState.auth || null;
+  return {
+    configured: !!redditState.client_id,
+    client_id: redditState.client_id || "",
+    has_client_secret: !!redditState.client_secret,
+    redirect_uri: redditState.redirect_uri || "",
+    connected: !!(auth && auth.refresh_token),
+    username: auth && auth.username ? auth.username : "",
+    scope: auth && auth.scope ? auth.scope : "",
+    expires_at: auth && auth.expires_at ? auth.expires_at : 0,
+  };
+}
+
+function sanitizeState(state) {
+  const normalized = normalizeState(state);
+  return {
+    ...normalized,
+    reddit: publicRedditStatus(normalized.reddit),
   };
 }
 
@@ -513,6 +560,63 @@ function albumPathFromValue(value) {
   return raw.replace(/^\/+|\/+$/g, "").split("/").pop() || raw;
 }
 
+function normalizeAlbumKey(value) {
+  const path = albumPathFromValue(value);
+  if (path) return path;
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return new URL(raw.startsWith("//") ? `https:${raw}` : raw).href;
+  } catch {
+    return raw;
+  }
+}
+
+function albumRecordFromBody(body = {}) {
+  const url = String(body.url || body.album_url || body.path || "").trim();
+  const key = normalizeAlbumKey(url || body.key || body.title || "");
+  if (!key) {
+    throw new Error("Album history actions require an album url, path, key, or title.");
+  }
+  return {
+    key,
+    url,
+    title: String(body.title || ""),
+    thumb: String(body.thumb || body.thumbnail || ""),
+    source: String(body.source || "erome"),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function recordAlbumState(state, body = {}) {
+  const action = String(body.action || body.state || "seen").toLowerCase();
+  const actionMap = {
+    seen: ["seen", true],
+    skipped: ["skipped", true],
+    saved: ["saved", true],
+    unsee: ["seen", false],
+    unseen: ["seen", false],
+    unskip: ["skipped", false],
+    unskipped: ["skipped", false],
+    unsave: ["saved", false],
+    unsaved: ["saved", false],
+  };
+  const target = actionMap[action];
+  if (!target) {
+    throw new Error("Album history action should be seen, skipped, saved, unsee, unskip, or unsave.");
+  }
+  const [bucket, shouldSet] = target;
+  const record = albumRecordFromBody(body);
+  state.albums = state.albums || { seen: {}, skipped: {}, saved: {} };
+  state.albums[bucket] = state.albums[bucket] || {};
+  if (shouldSet) {
+    state.albums[bucket][record.key] = record;
+  } else {
+    delete state.albums[bucket][record.key];
+  }
+  return { bucket, action, record, albums: state.albums };
+}
+
 function recordDownloadResults(state, results, albumPath = "") {
   const items = Array.isArray(results) ? results : [results];
   const now = new Date().toISOString();
@@ -734,12 +838,254 @@ function getInt(value, fallback) {
   return Number.isFinite(parsed) ? Math.trunc(parsed) : fallback;
 }
 
+function clampInt(value, fallback, min, max) {
+  const parsed = getInt(value, fallback);
+  return Math.max(min, Math.min(max, parsed));
+}
+
+function sendRedirect(res, target) {
+  res.writeHead(302, {
+    Location: target,
+    "Access-Control-Allow-Origin": "*",
+  });
+  res.end();
+}
+
+function sendPlainHtml(res, statusCode, title, message) {
+  sendHtml(
+    res,
+    statusCode,
+    `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body style="font-family:Segoe UI,Arial,sans-serif;background:#0b1220;color:#e5e7eb;padding:24px"><h1>${title}</h1><p>${message}</p><p>You can close this tab and return to EroTok.</p></body></html>`
+  );
+}
+
+function requestOrigin(req) {
+  const host = req.headers.host || `${HOST}:${PORT}`;
+  return `http://${host}`;
+}
+
+function redditRedirectUri(req) {
+  return new URL("/api/reddit/callback", requestOrigin(req)).href;
+}
+
+function formEncode(data) {
+  return new URLSearchParams(data).toString();
+}
+
+function httpsJsonRequest(targetUrl, options = {}) {
+  return new Promise((resolve, reject) => {
+    const target = new URL(targetUrl);
+    const body = options.body || null;
+    const headers = { ...(options.headers || {}) };
+    if (body && !headers["Content-Length"]) headers["Content-Length"] = Buffer.byteLength(body);
+    const request = https.request(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port || 443,
+        path: target.pathname + target.search,
+        method: options.method || "GET",
+        headers,
+      },
+      (response) => {
+        let raw = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => { raw += chunk; });
+        response.on("end", () => {
+          let data = null;
+          try {
+            data = raw ? JSON.parse(raw) : null;
+          } catch {
+            data = { raw };
+          }
+          resolve({ statusCode: response.statusCode || 0, data, raw });
+        });
+      }
+    );
+    request.on("error", reject);
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+function redditBasicAuth(clientId, clientSecret = "") {
+  return `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString("base64")}`;
+}
+
+async function exchangeRedditCode(clientId, clientSecret, code, redirectUri) {
+  const body = formEncode({ grant_type: "authorization_code", code, redirect_uri: redirectUri });
+  const response = await httpsJsonRequest("https://www.reddit.com/api/v1/access_token", {
+    method: "POST",
+    headers: {
+      Authorization: redditBasicAuth(clientId, clientSecret),
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": REDDIT_USER_AGENT,
+    },
+    body,
+  });
+  if (response.statusCode < 200 || response.statusCode > 299 || !response.data || response.data.error) {
+    throw new Error(response.data?.error_description || response.data?.error || `Reddit token exchange failed with ${response.statusCode}.`);
+  }
+  return response.data;
+}
+
+async function refreshRedditToken(state) {
+  const reddit = state.reddit || {};
+  const auth = reddit.auth || {};
+  if (!reddit.client_id || !auth.refresh_token) {
+    throw new Error("Reddit login required.");
+  }
+  if (auth.access_token && Number(auth.expires_at || 0) > Date.now() + 60_000) {
+    return auth.access_token;
+  }
+  const response = await httpsJsonRequest("https://www.reddit.com/api/v1/access_token", {
+    method: "POST",
+    headers: {
+      Authorization: redditBasicAuth(reddit.client_id, reddit.client_secret),
+      "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": REDDIT_USER_AGENT,
+    },
+    body: formEncode({ grant_type: "refresh_token", refresh_token: auth.refresh_token }),
+  });
+  if (response.statusCode < 200 || response.statusCode > 299 || !response.data || response.data.error) {
+    throw new Error(response.data?.error_description || response.data?.error || `Reddit token refresh failed with ${response.statusCode}.`);
+  }
+  auth.access_token = response.data.access_token;
+  auth.expires_at = Date.now() + Math.max(60, Number(response.data.expires_in || 3600)) * 1000;
+  auth.scope = response.data.scope || auth.scope || "";
+  state.reddit.auth = auth;
+  writeState(state);
+  return auth.access_token;
+}
+
+async function redditApiRequest(state, apiPath) {
+  const accessToken = await refreshRedditToken(state);
+  const response = await httpsJsonRequest(`https://oauth.reddit.com${apiPath}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "User-Agent": REDDIT_USER_AGENT,
+    },
+  });
+  if (response.statusCode < 200 || response.statusCode > 299) {
+    throw new Error(response.data?.message || response.data?.error || `Reddit API failed with ${response.statusCode}.`);
+  }
+  return response.data;
+}
+
+function decodeRedditUrl(value) {
+  return String(value || "").replace(/&amp;/g, "&");
+}
+
+function firstHttpThumbnail(data = {}) {
+  const thumbnail = decodeRedditUrl(data.thumbnail || "");
+  if (/^https?:\/\//i.test(thumbnail)) return thumbnail;
+  const image = data.preview && data.preview.images && data.preview.images[0];
+  return image && image.source ? decodeRedditUrl(image.source.url || "") : "";
+}
+
+function redditImageFromPost(data = {}) {
+  const direct = decodeRedditUrl(data.url_overridden_by_dest || data.url || "");
+  if (/\.(jpe?g|png|gif|webp)(\?|$)/i.test(direct)) return direct;
+  const image = data.preview && data.preview.images && data.preview.images[0];
+  return image && image.source ? decodeRedditUrl(image.source.url || "") : "";
+}
+
+function redditVideoFromPost(data = {}) {
+  const video = data.secure_media?.reddit_video || data.media?.reddit_video || data.preview?.reddit_video_preview;
+  return video && video.fallback_url ? decodeRedditUrl(video.fallback_url) : "";
+}
+
+function redditGalleryImage(data = {}) {
+  const metadata = data.media_metadata || {};
+  for (const item of Object.values(metadata)) {
+    if (item && item.status === "valid" && item.s && item.s.u) return decodeRedditUrl(item.s.u);
+  }
+  return "";
+}
+
+function normalizeRedditPost(post) {
+  const data = post && post.data ? post.data : post;
+  if (!data || data.stickied) return null;
+  const permalink = data.permalink ? `https://www.reddit.com${data.permalink}` : decodeRedditUrl(data.url || "");
+  const sourceUrl = decodeRedditUrl(data.url_overridden_by_dest || data.url || permalink);
+  const thumb = firstHttpThumbnail(data);
+  const videoUrl = redditVideoFromPost(data);
+  const imageUrl = videoUrl ? "" : (redditImageFromPost(data) || redditGalleryImage(data));
+  const mediaUrl = videoUrl || imageUrl;
+  if (!mediaUrl) return null;
+  const type = videoUrl ? "video" : "photo";
+  return {
+    source: "reddit",
+    id: data.name || data.id || permalink,
+    album: {
+      source: "reddit",
+      id: data.name || data.id || permalink,
+      title: data.title || "Reddit post",
+      url: permalink,
+      source_url: sourceUrl,
+      thumb,
+      subreddit: data.subreddit_name_prefixed || (data.subreddit ? `r/${data.subreddit}` : ""),
+      username: data.author ? `u/${data.author}` : "",
+      is_nsfw: !!data.over_18,
+    },
+    media: {
+      source: "reddit",
+      type,
+      url: mediaUrl,
+      thumb_url: thumb,
+      permalink,
+      source_url: sourceUrl,
+    },
+  };
+}
+
+function normalizeRedditSearchQuery(value) {
+  return String(value || "")
+    .replace(/(^|\s)#(?=\S)/g, "$1")
+    .replace(/[,;\n\r]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function redditFeedPathFromQuery(url) {
+  const params = new URLSearchParams({
+    limit: String(clampInt(url.searchParams.get("limit"), 12, 1, 50)),
+    raw_json: "1",
+  });
+  const after = url.searchParams.get("after") || "";
+  if (after) params.set("after", after);
+  const kind = String(url.searchParams.get("kind") || "home").toLowerCase();
+  if (kind === "subreddit") {
+    const names = String(url.searchParams.get("subreddit") || "")
+      .split(/[,+\s]+/)
+      .map((name) => name.trim().replace(/^r\//i, ""))
+      .filter(Boolean)
+      .slice(0, 8);
+    if (!names.length) throw new Error("Enter at least one subreddit for Reddit subreddit feed.");
+    return `/r/${names.map(encodeURIComponent).join("+")}/hot?${params.toString()}`;
+  }
+  if (kind === "search") {
+    const query = String(url.searchParams.get("query") || "").trim();
+    if (!normalizeRedditSearchQuery(query)) throw new Error("Enter a Reddit search query.");
+    params.set("q", normalizeRedditSearchQuery(query));
+    params.set("sort", url.searchParams.get("sort") || "hot");
+    params.set("t", url.searchParams.get("time") || "week");
+    const subreddit = String(url.searchParams.get("subreddit") || "").trim().replace(/^r\//i, "");
+    if (subreddit) return `/r/${encodeURIComponent(subreddit)}/search?restrict_sr=1&${params.toString()}`;
+    return `/search?restrict_sr=0&${params.toString()}`;
+  }
+  if (kind === "new") return `/new?${params.toString()}`;
+  if (kind === "hot") return `/hot?${params.toString()}`;
+  return `/best?${params.toString()}`;
+}
+
 function getAlbumQueryOptions(url) {
   return {
     sort_by: url.searchParams.get("sort") || url.searchParams.get("sort_by") || "default",
     sort_dir: url.searchParams.get("dir") || url.searchParams.get("sort_dir") || "desc",
     hidden_only:
       getBool(url.searchParams.get("hidden"), false) || getBool(url.searchParams.get("hidden_only"), false),
+    match_mode: url.searchParams.get("match_mode") || url.searchParams.get("mode") || "site",
   };
 }
 
@@ -942,7 +1288,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && path === "/api/state") {
-      sendJson(res, 200, { ok: true, data: readState() });
+      sendJson(res, 200, { ok: true, data: sanitizeState(readState()) });
       return;
     }
 
@@ -961,6 +1307,165 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && path === "/api/downloaded") {
       sendJson(res, 200, { ok: true, data: readState().downloaded });
+      return;
+    }
+
+    if (req.method === "GET" && path === "/api/reddit/status") {
+      const state = readState();
+      state.reddit.redirect_uri = redditRedirectUri(req);
+      writeState(state);
+      sendJson(res, 200, { ok: true, data: publicRedditStatus(state.reddit) });
+      return;
+    }
+
+    if (req.method === "POST" && path === "/api/reddit/config") {
+      const body = await parseBody(req);
+      const state = readState();
+      const clientId = String(body.client_id || body.clientId || "").trim();
+      const clientSecret = String(body.client_secret || body.clientSecret || "").trim();
+      if (!clientId) throw new Error("Reddit client ID is required.");
+      const previousClientId = state.reddit.client_id;
+      state.reddit.client_id = clientId;
+      if (clientSecret) {
+        state.reddit.client_secret = clientSecret;
+      } else if (clientId !== previousClientId) {
+        state.reddit.client_secret = "";
+      }
+      state.reddit.redirect_uri = redditRedirectUri(req);
+      writeState(state);
+      sendJson(res, 200, { ok: true, data: publicRedditStatus(state.reddit) });
+      return;
+    }
+
+    if (req.method === "GET" && path === "/api/reddit/login") {
+      const state = readState();
+      const queryClientId = String(url.searchParams.get("client_id") || "").trim();
+      if (queryClientId) state.reddit.client_id = queryClientId;
+      if (!state.reddit.client_id) {
+        sendPlainHtml(res, 400, "Reddit client ID required", "Enter a Reddit app client ID in EroTok before connecting Reddit.");
+        return;
+      }
+      state.reddit.redirect_uri = redditRedirectUri(req);
+      state.reddit.oauth_state = randomUUID();
+      writeState(state);
+      const authUrl = new URL("https://www.reddit.com/api/v1/authorize");
+      authUrl.searchParams.set("client_id", state.reddit.client_id);
+      authUrl.searchParams.set("response_type", "code");
+      authUrl.searchParams.set("state", state.reddit.oauth_state);
+      authUrl.searchParams.set("redirect_uri", state.reddit.redirect_uri);
+      authUrl.searchParams.set("duration", "permanent");
+      authUrl.searchParams.set("scope", "identity read mysubreddits history");
+      sendRedirect(res, authUrl.href);
+      return;
+    }
+
+    if (req.method === "GET" && path === "/api/reddit/callback") {
+      const state = readState();
+      const expectedState = state.reddit.oauth_state || "";
+      const returnedState = url.searchParams.get("state") || "";
+      const error = url.searchParams.get("error") || "";
+      if (error) {
+        sendPlainHtml(res, 400, "Reddit connection cancelled", `Reddit returned: ${error}`);
+        return;
+      }
+      if (!expectedState || returnedState !== expectedState) {
+        sendPlainHtml(res, 400, "Reddit state mismatch", "The Reddit OAuth state did not match. Start the connection again from EroTok.");
+        return;
+      }
+      const code = url.searchParams.get("code") || "";
+      if (!code) {
+        sendPlainHtml(res, 400, "Reddit code missing", "Reddit did not return an OAuth code.");
+        return;
+      }
+      try {
+        const token = await exchangeRedditCode(state.reddit.client_id, state.reddit.client_secret, code, state.reddit.redirect_uri || redditRedirectUri(req));
+        state.reddit.oauth_state = "";
+        state.reddit.auth = {
+          access_token: token.access_token,
+          refresh_token: token.refresh_token,
+          scope: token.scope || "",
+          token_type: token.token_type || "bearer",
+          expires_at: Date.now() + Math.max(60, Number(token.expires_in || 3600)) * 1000,
+          username: "",
+        };
+        const me = await redditApiRequest(state, "/api/v1/me");
+        state.reddit.auth.username = me && me.name ? me.name : "";
+        writeState(state);
+        sendPlainHtml(res, 200, "Reddit connected", `Connected ${state.reddit.auth.username || "your Reddit account"} to EroTok.`);
+        return;
+      } catch (callbackError) {
+        sendPlainHtml(res, 500, "Reddit connection failed", String(callbackError.message || callbackError));
+        return;
+      }
+    }
+
+    if (req.method === "POST" && path === "/api/reddit/disconnect") {
+      const state = readState();
+      state.reddit.auth = null;
+      state.reddit.oauth_state = "";
+      writeState(state);
+      sendJson(res, 200, { ok: true, data: publicRedditStatus(state.reddit) });
+      return;
+    }
+
+    if (req.method === "GET" && path === "/api/reddit/feed") {
+      const state = readState();
+      if (!state.reddit.client_id) {
+        sendJson(res, 400, { ok: false, error: "Reddit client ID required.", code: "reddit_not_configured" });
+        return;
+      }
+      if (!state.reddit.auth || !state.reddit.auth.refresh_token) {
+        sendJson(res, 401, { ok: false, error: "Reddit login required.", code: "reddit_login_required" });
+        return;
+      }
+      let feedPath;
+      try {
+        feedPath = redditFeedPathFromQuery(url);
+      } catch (feedError) {
+        sendJson(res, 400, { ok: false, error: feedError.message || String(feedError) });
+        return;
+      }
+      const listing = await redditApiRequest(state, feedPath);
+      const children = Array.isArray(listing?.data?.children) ? listing.data.children : [];
+      const items = children.map(normalizeRedditPost).filter(Boolean);
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          source: "reddit",
+          authenticated: true,
+          items,
+          after: listing?.data?.after || "",
+        },
+      });
+      return;
+    }
+
+    if (req.method === "GET" && path === "/api/albums/history") {
+      sendJson(res, 200, { ok: true, data: readState().albums });
+      return;
+    }
+
+    if (req.method === "POST" && path === "/api/albums/mark") {
+      const body = await parseBody(req);
+      const state = readState();
+      const data = recordAlbumState(state, body);
+      writeState(state);
+      sendJson(res, 200, { ok: true, data });
+      return;
+    }
+
+    if (req.method === "POST" && path === "/api/albums/clear-history") {
+      const body = await parseBody(req);
+      const state = readState();
+      const bucket = String(body.bucket || "all").toLowerCase();
+      if (bucket === "all") {
+        state.albums = { seen: {}, skipped: {}, saved: {} };
+      } else if (["seen", "skipped", "saved"].includes(bucket)) {
+        state.albums[bucket] = {};
+      } else {
+        throw new Error("Album history bucket should be all, seen, skipped, or saved.");
+      }
+      sendJson(res, 200, { ok: true, data: writeState(state).albums });
       return;
     }
 
@@ -1185,6 +1690,15 @@ const server = http.createServer(async (req, res) => {
         "GET /api/settings",
         "POST /api/settings",
         "GET /api/downloaded",
+        "GET /api/reddit/status",
+        "POST /api/reddit/config",
+        "GET /api/reddit/login",
+        "GET /api/reddit/callback",
+        "POST /api/reddit/disconnect",
+        "GET /api/reddit/feed?kind=home&limit=12",
+        "GET /api/albums/history",
+        "POST /api/albums/mark",
+        "POST /api/albums/clear-history",
         "GET /api/search?keyword=&page=1&limit=1",
         "GET /api/hidden-search?keyword=&page=1&limit=1",
         "GET /api/explore?page=1&limit=1&new=false",

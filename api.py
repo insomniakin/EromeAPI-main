@@ -26,6 +26,10 @@ class Api:
             "pragma": "no-cache",
         }
         self.__media_pattern = re.compile(r"^https?://([sv]\d+\.erome\.com)(/[^\s]*)?(\?[^#\s]*)?$", re.I)
+        self.__reddit_media_pattern = re.compile(
+            r"^https?://((?:i|preview|external-preview|v)\.redd\.it)(/[^\s]*)?(\?[^#\s]*)?$",
+            re.I,
+        )
         self.__version_list = {"all", "straight", "trans", "gay", "hentai"}
         self.__base_url = "https://www.erome.com"
         self.__timeout = 20
@@ -47,9 +51,46 @@ class Api:
                 terms.append(tag)
         return terms
 
+    def __normalize_match_mode(self, value: str) -> str:
+        mode = self.__normalize_tag(str(value or "site")).replace(" ", "_")
+        aliases = {
+            "": "site",
+            "site": "site",
+            "default": "site",
+            "legacy": "site",
+            "exact": "exact",
+            "exact_phrase": "exact",
+            "phrase": "exact",
+            "any": "any",
+            "some": "any",
+            "some_keywords": "any",
+            "all": "all",
+            "all_keywords": "all",
+            "and": "all",
+            "combo": "combo",
+            "only_combo": "combo",
+            "only_this_combo": "combo",
+        }
+        normalized = aliases.get(mode)
+        if normalized is None:
+            raise ValueError("'match_mode' should be one of site, exact, any, all, or combo.")
+        return normalized
+
+    def __extract_plain_keyword_terms(self, value: str) -> List[str]:
+        without_hashtags = re.sub(r"#[^#,;\n\r]+", " ", str(value or ""))
+        terms: List[str] = []
+        for raw_term in re.split(r"[,;\n\r\s]+", without_hashtags):
+            term = self.__normalize_tag(raw_term)
+            if term and term not in terms:
+                terms.append(term)
+        return terms
+
+    def __plain_search_phrase(self, value: str) -> str:
+        without_hashtags = re.sub(r"#[^#,;\n\r]+", " ", str(value or ""))
+        return self.__normalize_tag(without_hashtags)
+
     def __search_keyword_for_site(self, value: str) -> str:
-        without_hashes = re.sub(r"#(?=[^#,;\n\r]+)", "", str(value or ""))
-        return self.__normalize_text(re.sub(r"[,;\n\r]+", " ", without_hashes))
+        return self.__normalize_text(re.sub(r"[,;\n\r]+", " ", str(value or "")))
 
     def __safe_get(self, url: str, headers: Optional[Dict[str, str]] = None) -> requests.Response:
         final_headers = headers if headers is not None else self.__headers
@@ -59,14 +100,29 @@ class Api:
         media_url = self.__normalize_text(url)
         if media_url.startswith("//"):
             media_url = f"https:{media_url}"
-        if not self.__media_pattern.search(media_url):
-            raise ValueError("'url' must match the erome media host pattern.")
+        if not self.__media_pattern.search(media_url) and not self.__reddit_media_pattern.search(media_url):
+            raise ValueError("'url' must match the erome or reddit media host pattern.")
         return media_url
 
     def __media_request_headers(self, media_url: str, max_video_bytes: int = 0) -> Dict[str, str]:
         match = self.__media_pattern.search(media_url)
-        if not match:
-            raise ValueError("'url' must match the erome media host pattern.")
+        reddit_match = self.__reddit_media_pattern.search(media_url)
+        if not match and not reddit_match:
+            raise ValueError("'url' must match the erome or reddit media host pattern.")
+
+        if reddit_match:
+            headers = {
+                "host": reddit_match.group(1).lower(),
+                "connection": "keep-alive",
+                "user-agent": self.__headers["user-agent"],
+                "accept": "*/*",
+                "accept-language": "en-US,en;q=0.9",
+                "referer": "https://www.reddit.com/",
+                "origin": "https://www.reddit.com",
+            }
+            if max_video_bytes > 1:
+                headers["range"] = f"bytes=0-{max_video_bytes - 1}"
+            return headers
 
         host = match.group(1).lower()
         common_headers = {
@@ -262,13 +318,66 @@ class Api:
         return {"description": description, "tags": tags}
 
     def __album_matches_hashtags(self, album: Dict[str, Any], hashtag_terms: List[str]) -> bool:
-        tag_terms = {self.__normalize_tag(tag) for tag in album.get("tags", []) if self.__normalize_tag(str(tag))}
-        description_hashtags = set(self.__extract_hashtag_terms(str(album.get("description") or ""), allow_multi_word=False))
-        metadata_terms = tag_terms | description_hashtags
+        metadata_terms = self.__album_metadata_terms(album)
         return all(term in metadata_terms for term in hashtag_terms)
 
-    def __enrich_and_filter_hashtag_results(self, albums: List[Dict[str, Any]], hashtag_terms: List[str]) -> List[Dict[str, Any]]:
-        filtered: List[Dict[str, Any]] = []
+    def __album_metadata_terms(self, album: Dict[str, Any]) -> set:
+        tag_terms = {self.__normalize_tag(tag) for tag in album.get("tags", []) if self.__normalize_tag(str(tag))}
+        description_hashtags = set(self.__extract_hashtag_terms(str(album.get("description") or ""), allow_multi_word=False))
+        return tag_terms | description_hashtags
+
+    def __album_search_text(self, album: Dict[str, Any]) -> str:
+        terms = [
+            album.get("title"),
+            album.get("url"),
+            album.get("username"),
+            album.get("description"),
+            album.get("visibility"),
+            *(album.get("tags", []) if isinstance(album.get("tags"), list) else []),
+            *(album.get("matched_hashtags", []) if isinstance(album.get("matched_hashtags"), list) else []),
+        ]
+        return self.__normalize_tag(" ".join(str(term or "") for term in terms))
+
+    def __album_matches_search_mode(
+        self,
+        album: Dict[str, Any],
+        keyword_terms: List[str],
+        hashtag_terms: List[str],
+        exact_phrase: str,
+        match_mode: str,
+    ) -> bool:
+        search_text = self.__album_search_text(album)
+        metadata_terms = self.__album_metadata_terms(album)
+        plain_matches = [term for term in keyword_terms if term in search_text]
+        hashtag_matches = [term for term in hashtag_terms if term in metadata_terms]
+
+        album["matched_keywords"] = plain_matches
+        if hashtag_terms:
+            album["matched_hashtags"] = hashtag_matches
+
+        if match_mode == "exact":
+            plain_ok = not exact_phrase or exact_phrase in search_text
+            hashtag_ok = all(term in metadata_terms for term in hashtag_terms)
+            return plain_ok and hashtag_ok
+
+        if match_mode == "any":
+            requested_count = len(keyword_terms) + len(hashtag_terms)
+            if requested_count == 0:
+                return True
+            return bool(plain_matches or hashtag_matches)
+
+        if match_mode == "combo":
+            plain_ok = all(term in search_text for term in keyword_terms)
+            if hashtag_terms:
+                return plain_ok and all(term in metadata_terms for term in hashtag_terms)
+            return plain_ok
+
+        plain_ok = all(term in search_text for term in keyword_terms)
+        hashtag_ok = all(term in metadata_terms for term in hashtag_terms)
+        return plain_ok and hashtag_ok
+
+    def __enrich_album_results(self, albums: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        enriched_albums: List[Dict[str, Any]] = []
         for album in albums:
             enriched = dict(album)
             try:
@@ -277,9 +386,15 @@ class Api:
                 metadata = {"description": "", "tags": []}
             enriched["description"] = metadata.get("description", "")
             enriched["tags"] = metadata.get("tags", [])
-            if self.__album_matches_hashtags(enriched, hashtag_terms):
-                enriched["matched_hashtags"] = hashtag_terms
-                filtered.append(enriched)
+            enriched_albums.append(enriched)
+        return enriched_albums
+
+    def __enrich_and_filter_hashtag_results(self, albums: List[Dict[str, Any]], hashtag_terms: List[str]) -> List[Dict[str, Any]]:
+        filtered: List[Dict[str, Any]] = []
+        for album in self.__enrich_album_results(albums):
+            if self.__album_matches_hashtags(album, hashtag_terms):
+                album["matched_hashtags"] = hashtag_terms
+                filtered.append(album)
         return filtered
 
     def __extract_profile_path(self, profile_or_url: str) -> str:
@@ -673,6 +788,7 @@ class Api:
         sort_by: str = "default",
         sort_dir: str = "desc",
         hidden_only: bool = False,
+        match_mode: str = "site",
     ) -> List[Dict[str, Any]]:
         if not isinstance(keyword, str):
             raise TypeError("'keyword' should be a string.")
@@ -686,14 +802,26 @@ class Api:
             raise ValueError("'page' should not be greater than 'limit'.")
 
         keyword = self.__normalize_text(keyword)
+        normalized_match_mode = self.__normalize_match_mode(match_mode)
         hashtag_terms = self.__extract_hashtag_terms(keyword)
+        keyword_terms = self.__extract_plain_keyword_terms(keyword)
+        exact_phrase = self.__plain_search_phrase(keyword)
         site_keyword = self.__search_keyword_for_site(keyword) if hashtag_terms else keyword
         content: List[Dict[str, Any]] = []
         while page <= limit:
             content.extend(self.__get_album_data(page, keyword=site_keyword))
             page += 1
-        if hashtag_terms:
+
+        if normalized_match_mode == "site" and hashtag_terms:
             content = self.__enrich_and_filter_hashtag_results(content, hashtag_terms)
+
+        if normalized_match_mode != "site":
+            if hashtag_terms or normalized_match_mode == "combo":
+                content = self.__enrich_album_results(content)
+            content = [
+                album for album in content
+                if self.__album_matches_search_mode(album, keyword_terms, hashtag_terms, exact_phrase, normalized_match_mode)
+            ]
         return self.__sort_and_filter_albums(content, sort_by=sort_by, sort_dir=sort_dir, hidden_only=hidden_only)
 
     def get_explore(

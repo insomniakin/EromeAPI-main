@@ -60,6 +60,7 @@ def main() -> None:
                 str(payload.get("sort_by", "default")),
                 str(payload.get("sort_dir", "desc")),
                 bool(payload.get("hidden_only", False)),
+                str(payload.get("match_mode", "site")),
             )
             write_result({"ok": True, "data": result})
 
