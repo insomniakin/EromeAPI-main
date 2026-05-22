@@ -495,7 +495,8 @@ function startAlbumDownloadJob(body) {
   const state = readState();
   const directory = body.directory || state.settings.download_directory || "Downloads";
   const overwrite = body.overwrite === true;
-  const skipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+  const requestedSkipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+  const skipDownloaded = !overwrite && body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
   const mediaType = body.media_type || state.settings.media_type || "all";
   const maxWorkers = getInt(body.max_workers, state.settings.max_workers || 4);
   const sourcePath = body.path || body.url || body.album_url || "";
@@ -504,7 +505,7 @@ function startAlbumDownloadJob(body) {
     ...state.settings,
     download_directory: directory,
     media_type: mediaType,
-    skip_downloaded: skipDownloaded,
+    skip_downloaded: requestedSkipDownloaded,
     overwrite,
     max_workers: maxWorkers,
   };
@@ -520,7 +521,7 @@ function startAlbumDownloadJob(body) {
       include_videos: body.include_videos !== false && mediaType !== "photo",
       overwrite,
       max_workers: maxWorkers,
-      skip_urls: skipDownloaded ? Object.keys(state.downloaded.media) : [],
+      skip_urls: skipDownloaded ? downloadedMediaUrls(state) : [],
       retry_delay: Number.isFinite(Number(body.retry_delay)) ? Number(body.retry_delay) : 0.5,
     },
     (results) => finalizeDownloadedResults(results, albumPath)
@@ -532,17 +533,18 @@ function startMediaDownloadJob(body) {
   const mediaUrl = normalizeMediaUrl(body.url || "");
   const directory = body.directory || state.settings.download_directory || "Downloads";
   const overwrite = body.overwrite === true;
-  const skipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+  const requestedSkipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+  const skipDownloaded = !overwrite && body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
   const albumPath = albumPathFromValue(body.album || body.album_url || "");
   state.settings = {
     ...state.settings,
     download_directory: directory,
-    skip_downloaded: skipDownloaded,
+    skip_downloaded: requestedSkipDownloaded,
     overwrite,
   };
   writeState(state);
 
-  if (skipDownloaded && state.downloaded.media[mediaUrl]) {
+  if (skipDownloaded && isDownloadedMediaRecord(state.downloaded.media[mediaUrl])) {
     return createCompletedDownloadJob("media", { ...state.downloaded.media[mediaUrl], status: "skipped_downloaded" });
   }
 
@@ -594,6 +596,18 @@ function normalizeMediaUrl(value) {
   } catch {
     return raw;
   }
+}
+
+function isDownloadedMediaRecord(record) {
+  if (!record) return false;
+  return !record.status || record.status === "downloaded";
+}
+
+function downloadedMediaUrls(state) {
+  return Object.entries((state.downloaded && state.downloaded.media) || {})
+    .filter(([, record]) => isDownloadedMediaRecord(record))
+    .map(([url]) => normalizeMediaUrl(url))
+    .filter(Boolean);
 }
 
 function albumPathFromValue(value) {
@@ -673,7 +687,7 @@ function recordDownloadResults(state, results, albumPath = "") {
   for (const item of items) {
     if (!item || !item.url) continue;
     const status = item.status || "downloaded";
-    if (!["downloaded", "skipped"].includes(status)) continue;
+    if (status !== "downloaded") continue;
     const url = normalizeMediaUrl(item.url);
     state.downloaded.media[url] = {
       url,
@@ -1935,13 +1949,14 @@ const server = http.createServer(async (req, res) => {
       const state = readState();
       const directory = body.directory || state.settings.download_directory || "Downloads";
       const overwrite = body.overwrite === true;
-      const skipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+      const requestedSkipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+      const skipDownloaded = !overwrite && body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
       const mediaType = body.media_type || state.settings.media_type || "all";
       state.settings = {
         ...state.settings,
         download_directory: directory,
         media_type: mediaType,
-        skip_downloaded: skipDownloaded,
+        skip_downloaded: requestedSkipDownloaded,
         overwrite,
         max_workers: getInt(body.max_workers, state.settings.max_workers || 4),
       };
@@ -1953,7 +1968,7 @@ const server = http.createServer(async (req, res) => {
         include_videos: body.include_videos !== false && mediaType !== "photo",
         overwrite,
         max_workers: state.settings.max_workers,
-        skip_urls: skipDownloaded ? Object.keys(state.downloaded.media) : [],
+        skip_urls: skipDownloaded ? downloadedMediaUrls(state) : [],
         retry_until_done: body.retry_until_done === true,
         retry_delay: Number.isFinite(Number(body.retry_delay)) ? Number(body.retry_delay) : 0.5,
       });
@@ -1997,14 +2012,15 @@ const server = http.createServer(async (req, res) => {
       const mediaUrl = normalizeMediaUrl(body.url || "");
       const directory = body.directory || state.settings.download_directory || "Downloads";
       const overwrite = body.overwrite === true;
-      const skipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+      const requestedSkipDownloaded = body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
+      const skipDownloaded = !overwrite && body.skip_downloaded !== false && state.settings.skip_downloaded !== false;
       state.settings = {
         ...state.settings,
         download_directory: directory,
-        skip_downloaded: skipDownloaded,
+        skip_downloaded: requestedSkipDownloaded,
         overwrite,
       };
-      if (skipDownloaded && state.downloaded.media[mediaUrl]) {
+      if (skipDownloaded && isDownloadedMediaRecord(state.downloaded.media[mediaUrl])) {
         writeState(state);
         sendJson(res, 200, { ok: true, data: { ...state.downloaded.media[mediaUrl], status: "skipped_downloaded" } });
         return;

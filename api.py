@@ -1,3 +1,4 @@
+import os
 import re
 import threading
 import time
@@ -194,6 +195,7 @@ class Api:
     ) -> None:
         headers = self.__media_request_headers(media_url)
         response = self.__session.get(media_url, headers=headers, timeout=self.__timeout, stream=True)
+        temp_path: Optional[Path] = None
         try:
             if response.status_code < 200 or response.status_code > 207:
                 raise RuntimeError("Invalid or expired 'url'.")
@@ -201,7 +203,8 @@ class Api:
             total_bytes = self.__response_content_length(response)
             downloaded_bytes = 0
             chunks = response.iter_content(chunk_size=1024 * 256) if hasattr(response, "iter_content") else [response.content]
-            with file_path.open("wb") as media_file:
+            temp_path = file_path.with_name(f".{file_path.name}.{os.getpid()}.{threading.get_ident()}.{time.time_ns()}.part")
+            with temp_path.open("wb") as media_file:
                 for chunk in chunks:
                     if not chunk:
                         continue
@@ -209,6 +212,14 @@ class Api:
                     downloaded_bytes += len(chunk)
                     if progress_callback:
                         progress_callback(downloaded_bytes, total_bytes)
+            temp_path.replace(file_path)
+        except Exception:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            raise
         finally:
             close = getattr(response, "close", None)
             if callable(close):

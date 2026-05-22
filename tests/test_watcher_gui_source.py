@@ -337,6 +337,17 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn("feedState.pendingMediaDownloads.delete(mediaKey)", source)
         self.assertIn('normalizeMediaUrl(job.media_url || "") === mediaUrl', server)
 
+    def test_server_only_skips_successfully_downloaded_media(self):
+        server = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn("function isDownloadedMediaRecord(record)", server)
+        self.assertIn('return !record.status || record.status === "downloaded";', server)
+        self.assertIn("function downloadedMediaUrls(state)", server)
+        self.assertIn('const skipDownloaded = !overwrite && body.skip_downloaded !== false && state.settings.skip_downloaded !== false;', server)
+        self.assertIn('skip_urls: skipDownloaded ? downloadedMediaUrls(state) : [],', server)
+        self.assertIn('if (skipDownloaded && isDownloadedMediaRecord(state.downloaded.media[mediaUrl]))', server)
+        self.assertIn('if (status !== "downloaded") continue;', server)
+
     def test_root_feed_has_video_mute_toggle(self):
         source = Path("ui.html").read_text(encoding="utf-8")
 

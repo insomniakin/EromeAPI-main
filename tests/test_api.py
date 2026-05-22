@@ -36,6 +36,12 @@ class FakeSession:
         return self.responses.pop(0)
 
 
+class BrokenStreamResponse(FakeResponse):
+    def iter_content(self, chunk_size=1):
+        yield b"partial"
+        raise RuntimeError("stream broke")
+
+
 class ApiTests(unittest.TestCase):
     def test_search_query_is_url_encoded(self):
         api = Api()
@@ -374,6 +380,28 @@ class ApiTests(unittest.TestCase):
             self.assertEqual(completed_events[-1]["percent"], 100)
             self.assertEqual(completed_events[-1]["completed"], 1)
             self.assertEqual(completed_events[-1]["total"], 1)
+
+    def test_download_album_redownloads_after_failed_partial_file(self):
+        api = Api()
+        html = """
+        <meta property="og:title" content="Retry Album">
+        <a id="user_name">Uploader</a>
+        <div class="img"><img data-src="//s71.erome.com/photo-1.jpg"></div>
+        """
+        api._Api__session = FakeSession(
+            [FakeResponse(html)] +
+            [BrokenStreamResponse() for _ in range(8)] +
+            [FakeResponse(html), FakeResponse(content=b"complete-photo")]
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            first_result = api.download_album("ABC123", directory=temp_dir, max_workers=1, retry_delay=0)
+            second_result = api.download_album("ABC123", directory=temp_dir, max_workers=1, retry_delay=0)
+
+            self.assertEqual(first_result[0]["status"], "error")
+            self.assertEqual(second_result[0]["status"], "downloaded")
+            with open(second_result[0]["path"], "rb") as media_file:
+                self.assertEqual(media_file.read(), b"complete-photo")
 
     def test_download_album_reports_byte_progress_before_item_done(self):
         api = Api()
