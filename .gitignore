@@ -66,8 +66,11 @@ state.json
 *.sqlite3-*
 erome-watcher/state/
 output.txt
+results.txt
+test_output.txt
 test_result*.txt
 test_results*.txt
+erome_album.html
 -w
 
 # Flask stuff:

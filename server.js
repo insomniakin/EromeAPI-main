@@ -17,6 +17,20 @@ const PROXY_HEADERS = {
 
 const PROXY_AGENT = new https.Agent({ keepAlive: true, maxSockets: 32 });
 const REDDIT_USER_AGENT = "EroTok/1.0 local feed bridge";
+const TWITTER_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const TWITTER_API_USER_AGENT = "EroTok/1.0 local X API feed bridge";
+const TWITTER_API_BASE = (process.env.X_API_BASE || "https://api.twitter.com/2").replace(/\/+$/, "");
+const TWITTER_BEARER_TOKEN = process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN || "";
+
+function isAllowedProxyHost(hostname) {
+  return /(^|\.)((?:xxx)?erome)\.com$/i.test(String(hostname || ""));
+}
+
+function proxyOriginForHost(hostname) {
+  return /(^|\.)xxxerome\.com$/i.test(String(hostname || ""))
+    ? "https://www.xxxerome.com"
+    : "https://www.erome.com";
+}
 
 function streamProxy(req, res, targetUrlString, options = {}) {
   let target;
@@ -26,12 +40,17 @@ function streamProxy(req, res, targetUrlString, options = {}) {
     sendJson(res, 400, { ok: false, error: "Invalid proxy url." });
     return;
   }
-  if (!/^https?:$/.test(target.protocol) || !/erome\.com$/i.test(target.hostname)) {
-    sendJson(res, 400, { ok: false, error: "Only erome.com hosts are proxied." });
+  if (!/^https?:$/.test(target.protocol) || !isAllowedProxyHost(target.hostname)) {
+    sendJson(res, 400, { ok: false, error: "Only erome.com and xxxerome.com hosts are proxied." });
     return;
   }
 
-  const headers = { ...PROXY_HEADERS };
+  const origin = proxyOriginForHost(target.hostname);
+  const headers = {
+    ...PROXY_HEADERS,
+    Referer: `${origin}/`,
+    Origin: origin,
+  };
   if (req.headers["range"]) headers["Range"] = req.headers["range"];
   if (req.headers["if-none-match"]) headers["If-None-Match"] = req.headers["if-none-match"];
   if (req.headers["if-modified-since"]) headers["If-Modified-Since"] = req.headers["if-modified-since"];
@@ -79,7 +98,28 @@ function streamProxy(req, res, targetUrlString, options = {}) {
 
 const HOST = process.env.HOST || "127.0.0.1";
 const PORT = Number(process.env.PORT || 3000);
-const PYTHON_BIN = process.env.PYTHON_BIN || "python";
+const WSL_WINDOWS_PYTHON = "/mnt/c/Program Files/Python312/python.exe";
+
+function runningInWsl() {
+  if (process.platform !== "linux") return false;
+  try {
+    const release = fs.readFileSync("/proc/sys/kernel/osrelease", "utf8").toLowerCase();
+    const version = fs.readFileSync("/proc/version", "utf8").toLowerCase();
+    return release.includes("microsoft") || version.includes("microsoft");
+  } catch {
+    return false;
+  }
+}
+
+function resolvePythonBin() {
+  if (process.env.PYTHON_BIN) return process.env.PYTHON_BIN;
+  if (runningInWsl() && fs.existsSync(WSL_WINDOWS_PYTHON)) {
+    return WSL_WINDOWS_PYTHON;
+  }
+  return "python";
+}
+
+const PYTHON_BIN = resolvePythonBin();
 const UI_PATH = pathModule.join(__dirname, "ui.html");
 const APP_ROOT = pathModule.join(__dirname, "app");
 const APP_INDEX_PATH = pathModule.join(APP_ROOT, "index.html");
@@ -506,7 +546,15 @@ function startMediaDownloadJob(body) {
     return createCompletedDownloadJob("media", { ...state.downloaded.media[mediaUrl], status: "skipped_downloaded" });
   }
 
-  return startBridgeDownloadJob(
+  const existing = Array.from(downloadJobs.values()).find(
+    (job) =>
+      job.kind === "media" &&
+      ["running", "retrying"].includes(job.status) &&
+      normalizeMediaUrl(job.media_url || "") === mediaUrl
+  );
+  if (existing) return existing;
+
+  const job = startBridgeDownloadJob(
     "media",
     "download_media_progress",
     {
@@ -518,6 +566,8 @@ function startMediaDownloadJob(body) {
     },
     (result) => finalizeDownloadedResults(result, albumPath)
   );
+  job.media_url = mediaUrl;
+  return job;
 }
 
 function getDownloadJob(pathname) {
@@ -1039,6 +1089,219 @@ function normalizeRedditPost(post) {
   };
 }
 
+function decodeTwitterUrl(value) {
+  return String(value || "")
+    .replace(/\\u002F/g, "/")
+    .replace(/\\u0026/g, "&")
+    .replace(/\\\//g, "/")
+    .replace(/&amp;/g, "&");
+}
+
+function cleanTwitterMediaUrl(value) {
+  const cleaned = decodeTwitterUrl(value).replace(/["'<>\\]+$/g, "").trim();
+  if (!/^https?:\/\//i.test(cleaned)) return "";
+  const host = new URL(cleaned).hostname.toLowerCase();
+  if (host !== "pbs.twimg.com" && host !== "video.twimg.com") return "";
+  return cleaned;
+}
+
+function normalizeTwitterSearchQuery(value) {
+  return String(value || "")
+    .replace(/(^|\s)#(?=\S)/g, "$1")
+    .replace(/[,;\n\r]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function twitterProfileFromValue(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw.startsWith("@") ? `https://x.com/${raw.slice(1)}` : raw);
+    if (!/(^|\.)x\.com$|(^|\.)twitter\.com$/i.test(parsed.hostname)) return "";
+    return (parsed.pathname.split("/").filter(Boolean)[0] || "").replace(/^@/, "");
+  } catch {
+    return raw.replace(/^@/, "").split(/[/?#]/)[0];
+  }
+}
+
+function twitterPublicFeedUrlFromQuery(url) {
+  const profile = twitterProfileFromValue(url.searchParams.get("profile") || "");
+  if (profile) return `https://x.com/${encodeURIComponent(profile)}/media`;
+  const query = normalizeTwitterSearchQuery(url.searchParams.get("query") || "filter:media");
+  return `https://x.com/search?q=${encodeURIComponent(query || "filter:media")}&src=typed_query&f=live`;
+}
+
+function normalizeTwitterPost(post) {
+  const mediaUrl = cleanTwitterMediaUrl(post && (post.media_url || post.mediaUrl || post.url));
+  if (!mediaUrl) return null;
+  const sourceUrl = String((post && (post.source_url || post.sourceUrl || post.permalink)) || "").trim();
+  const isVideo = /(^|\.)video\.twimg\.com$/i.test(new URL(mediaUrl).hostname) || /\.(mp4|m3u8)(\?|$)/i.test(mediaUrl);
+  const title = String((post && post.title) || "Twitter/X post").trim() || "Twitter/X post";
+  const id = String((post && post.id) || sourceUrl || mediaUrl);
+  return {
+    source: "twitter",
+    id,
+    album: {
+      source: "twitter",
+      id,
+      title,
+      url: sourceUrl || mediaUrl,
+      source_url: sourceUrl || mediaUrl,
+      thumb: isVideo ? String((post && (post.thumb_url || post.thumbUrl)) || "") : mediaUrl,
+      username: post && post.username ? String(post.username) : "",
+    },
+    media: {
+      source: "twitter",
+      type: isVideo ? "video" : "photo",
+      url: mediaUrl,
+      thumb_url: isVideo ? String((post && (post.thumb_url || post.thumbUrl)) || "") : mediaUrl,
+      permalink: sourceUrl || "",
+      source_url: sourceUrl || mediaUrl,
+    },
+  };
+}
+
+function extractTwitterPublicItems(rawHtml, feedUrl, limit) {
+  const decoded = decodeTwitterUrl(rawHtml);
+  const titleMatch = decoded.match(/<title[^>]*>([^<]+)<\/title>/i);
+  const title = titleMatch ? titleMatch[1].replace(/\s+[\/-]\s+X\s*$/i, "").trim() : "Twitter/X post";
+  const statusUrls = Array.from(decoded.matchAll(/https:\/\/(?:x|twitter)\.com\/[A-Za-z0-9_]+\/status\/\d+/gi)).map((match) => match[0]);
+  const mediaUrls = Array.from(decoded.matchAll(/https:\/\/(?:pbs\.twimg\.com\/media|video\.twimg\.com)\/[^"'\s<>\\)]+/gi))
+    .map((match) => cleanTwitterMediaUrl(match[0]))
+    .filter(Boolean);
+  const seen = new Set();
+  const items = [];
+  for (const mediaUrl of mediaUrls) {
+    if (seen.has(mediaUrl)) continue;
+    seen.add(mediaUrl);
+    const item = normalizeTwitterPost({
+      id: mediaUrl,
+      title,
+      media_url: mediaUrl,
+      source_url: statusUrls[items.length] || feedUrl,
+    });
+    if (item) items.push(item);
+    if (items.length >= limit) break;
+  }
+  return items;
+}
+
+function twitterApiSearchQuery(value) {
+  const normalized = normalizeTwitterSearchQuery(value || "has:media -is:retweet")
+    .replace(/\bfilter:media\b/gi, "has:media");
+  if (!normalized) return "has:media -is:retweet";
+  const hasMediaFilter = /\b(has:media|has:images|has:videos|url:)\b/i.test(normalized);
+  const hasRetweetFilter = /(^|\s)-?is:retweet\b/i.test(normalized);
+  return `${hasMediaFilter ? normalized : `${normalized} has:media`}${hasRetweetFilter ? "" : " -is:retweet"}`.trim();
+}
+
+function twitterApiParams(limit, after, minResults) {
+  const params = new URLSearchParams({
+    max_results: String(Math.max(minResults, Math.min(100, Number(limit) || minResults))),
+    "tweet.fields": "attachments,author_id,created_at,entities,possibly_sensitive,text",
+    expansions: "attachments.media_keys,author_id",
+    "media.fields": "duration_ms,height,media_key,preview_image_url,type,url,variants,width",
+    "user.fields": "id,name,username",
+  });
+  if (after) params.set("pagination_token", after);
+  return params;
+}
+
+function twitterApiErrorMessage(response) {
+  const data = response.data || {};
+  if (Array.isArray(data.errors) && data.errors.length) {
+    return data.errors.map((error) => error.detail || error.message || error.title || JSON.stringify(error)).join("; ");
+  }
+  return data.detail || data.title || data.error_description || data.error || `X API failed with ${response.statusCode}.`;
+}
+
+async function twitterApiRequest(apiPath) {
+  const response = await httpsJsonRequest(`${TWITTER_API_BASE}${apiPath}`, {
+    headers: {
+      Authorization: `Bearer ${TWITTER_BEARER_TOKEN}`,
+      "User-Agent": TWITTER_API_USER_AGENT,
+      Accept: "application/json",
+    },
+  });
+  if (response.statusCode < 200 || response.statusCode > 299) {
+    throw new Error(twitterApiErrorMessage(response));
+  }
+  return response.data || {};
+}
+
+function twitterBestVideoVariant(variants) {
+  const validVariants = (Array.isArray(variants) ? variants : [])
+    .filter((variant) => variant && variant.url)
+    .map((variant) => ({
+      url: cleanTwitterMediaUrl(variant.url),
+      bitRate: Number(variant.bit_rate || variant.bitrate || 0),
+      contentType: String(variant.content_type || ""),
+    }))
+    .filter((variant) => variant.url);
+  const mp4Variants = validVariants
+    .filter((variant) => /video\/mp4/i.test(variant.contentType))
+    .sort((leftVariant, rightVariant) => rightVariant.bitRate - leftVariant.bitRate);
+  return (mp4Variants[0] && mp4Variants[0].url) || (validVariants[0] && validVariants[0].url) || "";
+}
+
+function twitterApiMediaUrl(media) {
+  if (!media) return "";
+  if (media.type === "photo") return cleanTwitterMediaUrl(media.url || "");
+  if (media.type === "video" || media.type === "animated_gif") return twitterBestVideoVariant(media.variants);
+  return cleanTwitterMediaUrl(media.url || media.preview_image_url || "");
+}
+
+function normalizeTwitterApiFeed(payload, limit) {
+  const mediaByKey = new Map((payload.includes?.media || []).map((media) => [media.media_key, media]));
+  const usersById = new Map((payload.includes?.users || []).map((user) => [user.id, user]));
+  const items = [];
+  for (const tweet of Array.isArray(payload.data) ? payload.data : []) {
+    const mediaKeys = Array.isArray(tweet.attachments?.media_keys) ? tweet.attachments.media_keys : [];
+    const user = usersById.get(tweet.author_id) || {};
+    const username = user.username ? `@${user.username}` : "";
+    const sourceUrl = `https://x.com/${user.username || "i"}/status/${tweet.id}`;
+    for (const mediaKey of mediaKeys) {
+      const media = mediaByKey.get(mediaKey);
+      const mediaUrl = twitterApiMediaUrl(media);
+      if (!mediaUrl) continue;
+      const item = normalizeTwitterPost({
+        id: `${tweet.id}:${mediaKey}`,
+        title: tweet.text || "Twitter/X post",
+        media_url: mediaUrl,
+        thumb_url: media && media.type === "photo" ? mediaUrl : (media && media.preview_image_url) || "",
+        source_url: sourceUrl,
+        username,
+      });
+      if (item) items.push(item);
+      if (items.length >= limit) break;
+    }
+    if (items.length >= limit) break;
+  }
+  return {
+    items,
+    after: payload.meta?.next_token || "",
+  };
+}
+
+async function fetchTwitterApiFeed(url, limit) {
+  const after = url.searchParams.get("after") || "";
+  const profile = twitterProfileFromValue(url.searchParams.get("profile") || "");
+  if (profile) {
+    const userPayload = await twitterApiRequest(`/users/by/username/${encodeURIComponent(profile)}?user.fields=username,name`);
+    const userId = userPayload.data && userPayload.data.id;
+    if (!userId) throw new Error(`X API could not find profile ${profile}.`);
+    const params = twitterApiParams(limit, after, 5);
+    params.set("exclude", "retweets,replies");
+    const payload = await twitterApiRequest(`/users/${encodeURIComponent(userId)}/tweets?${params.toString()}`);
+    return normalizeTwitterApiFeed(payload, limit);
+  }
+  const params = twitterApiParams(limit, after, 10);
+  params.set("query", twitterApiSearchQuery(url.searchParams.get("query") || "has:media -is:retweet"));
+  const payload = await twitterApiRequest(`/tweets/search/recent?${params.toString()}`);
+  return normalizeTwitterApiFeed(payload, limit);
+}
+
 function normalizeRedditSearchQuery(value) {
   return String(value || "")
     .replace(/(^|\s)#(?=\S)/g, "$1")
@@ -1086,6 +1349,11 @@ function getAlbumQueryOptions(url) {
     hidden_only:
       getBool(url.searchParams.get("hidden"), false) || getBool(url.searchParams.get("hidden_only"), false),
     match_mode: url.searchParams.get("match_mode") || url.searchParams.get("mode") || "site",
+    site_base:
+      url.searchParams.get("site") ||
+      url.searchParams.get("site_base") ||
+      url.searchParams.get("domain") ||
+      "",
   };
 }
 
@@ -1435,6 +1703,81 @@ const server = http.createServer(async (req, res) => {
           authenticated: true,
           items,
           after: listing?.data?.after || "",
+        },
+      });
+      return;
+    }
+
+    if (req.method === "GET" && path === "/api/twitter/feed") {
+      const limit = clampInt(url.searchParams.get("limit"), 12, 1, 50);
+      if (TWITTER_BEARER_TOKEN) {
+        try {
+          const apiFeed = await fetchTwitterApiFeed(url, limit);
+          const unavailable = apiFeed.items.length === 0;
+          sendJson(res, 200, {
+            ok: true,
+            data: {
+              source: "twitter",
+              provider: "x_api",
+              authenticated: true,
+              unavailable,
+              message: unavailable ? "Twitter/X API returned no media for this query or profile. Try a different profile/search, or check your X API plan access." : "",
+              items: apiFeed.items,
+              after: apiFeed.after || "",
+            },
+          });
+          return;
+        } catch (twitterApiError) {
+          sendJson(res, 200, {
+            ok: true,
+            data: {
+              source: "twitter",
+              provider: "x_api",
+              authenticated: true,
+              unavailable: true,
+              message: `Twitter/X API request failed: ${twitterApiError.message || twitterApiError}. Check X_BEARER_TOKEN/TWITTER_BEARER_TOKEN and your X API plan access.`,
+              items: [],
+              after: "",
+            },
+          });
+          return;
+        }
+      }
+      const feedUrl = twitterPublicFeedUrlFromQuery(url);
+      let items = [];
+      let unavailable = false;
+      let message = "";
+      try {
+        const response = await httpsJsonRequest(feedUrl, {
+          headers: {
+            "User-Agent": TWITTER_USER_AGENT,
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+          },
+        });
+        if (response.statusCode >= 200 && response.statusCode <= 399) {
+          items = extractTwitterPublicItems(response.raw || "", feedUrl, limit);
+          if (!items.length) {
+            unavailable = true;
+            message = "Twitter/X public access returned an app shell without media URLs. To pull real X media reliably, add official API or logged-in session support.";
+          }
+        } else {
+          unavailable = true;
+          message = `Twitter/X public access returned HTTP ${response.statusCode} without media URLs. To pull real X media reliably, add official API or logged-in session support.`;
+        }
+      } catch (twitterError) {
+        unavailable = true;
+        message = `Twitter/X public access failed without media URLs: ${twitterError.message || twitterError}. To pull real X media reliably, add official API or logged-in session support.`;
+      }
+      sendJson(res, 200, {
+        ok: true,
+        data: {
+          source: "twitter",
+          authenticated: false,
+          unavailable,
+          message,
+          items,
+          after: "",
         },
       });
       return;

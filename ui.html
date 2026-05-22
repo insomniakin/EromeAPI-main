@@ -207,6 +207,28 @@
       border: 1px solid var(--line);
       margin-top: 10px;
     }
+    .media-preview .yt-clone-player {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 64vh;
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #000;
+    }
+    .media-preview .yt-clone-player video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      border: 0;
+      margin: 0;
+      object-fit: contain;
+      background: #000;
+    }
     .result-tools {
       display: grid;
       gap: 8px;
@@ -441,15 +463,187 @@
       object-fit: contain;
       background: #000;
     }
+    .feed-item .yt-clone-player {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      outline: none;
+    }
+    .feed-item .yt-clone-player video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+    .yt-clone-shadow {
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 42%;
+      background: linear-gradient(to top, rgba(0,0,0,.88), transparent);
+      pointer-events: none;
+    }
+    .yt-clone-controls {
+      position: absolute;
+      inset: auto 0 0 0;
+      z-index: 3;
+      padding: 12px 14px 14px;
+      color: #fff;
+      opacity: 0;
+      transition: opacity 140ms ease-in-out;
+    }
+    .yt-clone-player.show-controls .yt-clone-controls,
+    .yt-clone-player.paused .yt-clone-controls,
+    .yt-clone-player:hover .yt-clone-controls,
+    .yt-clone-player:focus-within .yt-clone-controls { opacity: 1; }
+    .yt-clone-titlebar {
+      position: absolute;
+      inset: 0 0 auto 0;
+      z-index: 2;
+      padding: 14px 14px 0;
+      color: #fff;
+      pointer-events: none;
+    }
+    .yt-clone-kicker {
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.72);
+    }
+    .yt-clone-title {
+      margin-top: 6px;
+      max-width: calc(100% - 78px);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.3;
+      text-shadow: 0 2px 12px rgba(0,0,0,.5);
+    }
+    .yt-clone-timeline {
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: 16px;
+      cursor: pointer;
+    }
+    .yt-clone-timeline-track,
+    .yt-clone-timeline-preview,
+    .yt-clone-timeline-progress {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 4px;
+      border-radius: 999px;
+    }
+    .yt-clone-timeline-track { background: rgba(255,255,255,.28); }
+    .yt-clone-timeline-preview { right: auto; width: 0%; background: rgba(255,255,255,.42); }
+    .yt-clone-timeline-progress { right: auto; width: 0%; background: #ff3d3d; }
+    .yt-clone-thumb {
+      position: absolute;
+      top: 50%;
+      left: 0%;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: #ff3d3d;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 3px rgba(255,61,61,.18);
+    }
+    .yt-clone-tooltip {
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0%;
+      transform: translateX(-50%);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 999px;
+      background: rgba(8,8,8,.92);
+      padding: 3px 8px;
+      font-size: 11px;
+      color: rgba(255,255,255,.86);
+      white-space: nowrap;
+    }
+    .yt-clone-bar {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .yt-clone-left-controls,
+    .yt-clone-right-controls,
+    .yt-clone-volume-group,
+    .yt-clone-time-display {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+    .yt-clone-time-display {
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(255,255,255,.88);
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .yt-clone-icon-btn,
+    .yt-clone-pill-btn {
+      width: auto;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255,255,255,.1);
+      color: #fff;
+      cursor: pointer;
+      transition: background 140ms ease-in-out, transform 140ms ease-in-out, opacity 140ms ease-in-out;
+    }
+    .yt-clone-icon-btn {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: 14px;
+    }
+    .yt-clone-pill-btn {
+      min-width: 46px;
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .yt-clone-icon-btn:hover,
+    .yt-clone-pill-btn:hover { background: rgba(255,255,255,.2); transform: translateY(-1px); filter: none; }
+    .yt-clone-icon-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+    .yt-clone-volume-slider {
+      width: 86px;
+      min-width: 64px;
+      padding: 0;
+      accent-color: #ff3d3d;
+    }
+    .yt-clone-player.theater video { object-fit: cover; }
+    .yt-clone-player.full-screen {
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+    }
+    @media (max-width: 620px) {
+      .yt-clone-title { max-width: 72%; font-size: 12px; }
+      .yt-clone-volume-slider { width: 58px; }
+      .yt-clone-pill-btn { display: none; }
+    }
     .feed-item .feed-meta {
       position: absolute;
-      left: 12px; right: 12px; bottom: 12px;
+      left: 12px;
+      right: 12px;
+      bottom: calc(88px + env(safe-area-inset-bottom, 0px));
       padding: 10px 12px;
       border-radius: 10px;
       background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.65));
       color: #fff;
       font-size: 12px;
       pointer-events: none;
+      z-index: 5;
       text-shadow: 0 1px 2px rgba(0,0,0,.6);
     }
     .feed-item .feed-meta a { color: #93c5fd; pointer-events: auto; text-decoration: none; }
@@ -606,12 +800,20 @@
       <div class="pane active stack" data-pane="feed">
         <div class="muted">TikTok-style vertical feed. Scrolls one album-item at a time.</div>
         <div class="result-tools">
-          <div class="grid2">
+          <div class="grid3">
             <label>Feed network
               <select id="feedNetwork">
                 <option value="erome" selected>Erome only</option>
+                <option value="xxxerome">XXXErome only</option>
                 <option value="reddit">Reddit only</option>
-                <option value="both">Both</option>
+                <option value="twitter">Twitter/X only</option>
+                <option value="all">All</option>
+              </select>
+            </label>
+            <label>Erome site
+              <select id="feedSite">
+                <option value="https://www.erome.com" selected>Erome</option>
+                <option value="https://xxxerome.com">XXXErome</option>
               </select>
             </label>
             <label>Reddit items per batch<input id="redditItemsPerBatch" type="number" min="1" max="50" value="10"></label>
@@ -655,6 +857,12 @@
             </label>
           </div>
           <label>Reddit search query<input id="redditQuery" placeholder="Optional search text"></label>
+          <div class="grid2">
+            <label>Twitter/X items per batch<input id="twitterItemsPerBatch" type="number" min="1" max="50" value="10"></label>
+            <label>Twitter/X profile<input id="twitterProfile" placeholder="@username or profile URL"></label>
+          </div>
+          <label>Twitter/X search query<input id="twitterQuery" placeholder="Optional public search text"></label>
+          <div id="twitterHelp" class="muted">Twitter/X works anonymously when public pages expose media. public X pages may return only the app shell, so real pulling can require official API or logged-in session support.</div>
         </div>
         <label>Source
           <select id="feedSource">
@@ -720,6 +928,12 @@
         <label>Keywords / Hashtags
           <textarea id="searchKeyword" placeholder="travel, #outdoor, redhair">test</textarea>
         </label>
+        <label>Site
+          <select id="searchSite">
+            <option value="https://www.erome.com">Erome</option>
+            <option value="https://xxxerome.com" selected>XXXErome</option>
+          </select>
+        </label>
         <label>Keyword match mode
           <select id="searchMatchMode">
             <option value="all" selected>All keywords</option>
@@ -743,6 +957,12 @@
       </div>
 
       <div class="pane stack" data-pane="explore">
+        <label>Site
+          <select id="exploreSite">
+            <option value="https://www.erome.com">Erome</option>
+            <option value="https://xxxerome.com" selected>XXXErome</option>
+          </select>
+        </label>
         <div class="grid2">
           <label>Page<input id="explorePage" type="number" min="1" value="1"></label>
           <label>Limit<input id="exploreLimit" type="number" min="1" value="1"></label>
@@ -757,7 +977,13 @@
       </div>
 
       <div class="pane stack" data-pane="profile">
-        <label>Public Profile Username or URL<input id="profileName" placeholder="username or https://www.erome.com/username"></label>
+        <label>Public Profile Username or URL<input id="profileName" placeholder="username or https://xxxerome.com/a/onlyfans/123/name"></label>
+        <label>Site (used for username-only lookups)
+          <select id="profileSite">
+            <option value="https://www.erome.com">Erome</option>
+            <option value="https://xxxerome.com" selected>XXXErome</option>
+          </select>
+        </label>
         <label>Profile Content
           <select id="profileContent">
             <option value="albums">Uploads</option>
@@ -920,18 +1146,56 @@
     let redditStatusState = { configured: false, connected: false, username: '', redirect_uri: '' };
     const FORM_SETTING_IDS = [
       'hideTerms', 'hideSeenAlbums', 'hideSkippedAlbums', 'hideSavedAlbums', 'hashtagTerms',
-      'feedNetwork', 'feedSource', 'feedKeyword', 'feedMatchMode', 'feedProfileName', 'feedFilter', 'feedAlbumsPerBatch',
+      'feedNetwork', 'feedSite', 'feedSource', 'feedKeyword', 'feedMatchMode', 'feedProfileName', 'feedFilter', 'feedAlbumsPerBatch',
       'feedItemsPerAlbum', 'feedEager', 'feedDesktop', 'feedStartMuted', 'feedMinSec',
       'redditClientId', 'redditFeedKind', 'redditSubreddit', 'redditQuery', 'redditItemsPerBatch', 'redditSort',
-      'searchKeyword', 'searchMatchMode', 'searchHidden', 'searchPage', 'searchLimit',
-      'explorePage', 'exploreLimit', 'exploreNew',
-      'profileName', 'profileContent', 'profilePage', 'profileLimit',
+      'twitterQuery', 'twitterProfile', 'twitterItemsPerBatch',
+      'searchKeyword', 'searchSite', 'searchMatchMode', 'searchHidden', 'searchPage', 'searchLimit',
+      'exploreSite', 'explorePage', 'exploreLimit', 'exploreNew',
+      'profileName', 'profileSite', 'profileContent', 'profilePage', 'profileLimit',
       'versionValue', 'albumPath', 'mediaUrl', 'mediaBytes',
       'downloadPath', 'downloadDir', 'downloadPhotos', 'downloadVideos', 'downloadOverwrite', 'downloadWorkers',
       'resultDownloadDir', 'resultMediaType', 'albumSortBy', 'albumSortDir', 'albumHiddenOnly'
     ];
     let settingsSaveTimer = null;
     let isApplyingSettings = false;
+    let isSyncingProfileInputs = false;
+
+    function syncProfileInputs(sourceId = '', persist = true) {
+      if (isSyncingProfileInputs) return;
+      const feedInput = document.getElementById('feedProfileName');
+      const profileInput = document.getElementById('profileName');
+      if (!feedInput || !profileInput) return;
+
+      const fromFeed = String(feedInput.value || '');
+      const fromProfile = String(profileInput.value || '');
+      const nextValue = sourceId === 'feedProfileName'
+        ? fromFeed
+        : sourceId === 'profileName'
+          ? fromProfile
+          : (fromFeed || fromProfile);
+
+      if (feedInput.value === nextValue && profileInput.value === nextValue) return;
+      isSyncingProfileInputs = true;
+      try {
+        feedInput.value = nextValue;
+        profileInput.value = nextValue;
+      } finally {
+        isSyncingProfileInputs = false;
+      }
+
+      if (!isApplyingSettings && persist) scheduleSettingsSave();
+    }
+
+    function bindProfileInputSync() {
+      const feedInput = document.getElementById('feedProfileName');
+      const profileInput = document.getElementById('profileName');
+      if (!feedInput || !profileInput) return;
+      feedInput.addEventListener('input', () => syncProfileInputs('feedProfileName'));
+      profileInput.addEventListener('input', () => syncProfileInputs('profileName'));
+      feedInput.addEventListener('change', () => syncProfileInputs('feedProfileName'));
+      profileInput.addEventListener('change', () => syncProfileInputs('profileName'));
+    }
 
     function setStatus(message, ok = true) {
       statusEl.textContent = message;
@@ -969,9 +1233,24 @@
       return document.getElementById('resultDownloadDir').value || 'Downloads';
     }
 
+    function normalizeMediaType(type) {
+      const value = String(type || '').trim().toLowerCase();
+      if (value === 'video' || value === 'mp4' || value === 'webm') return 'video';
+      if (value === 'photo' || value === 'image' || value === 'img' || value === 'jpeg' || value === 'jpg' || value === 'png' || value === 'gif') {
+        return 'photo';
+      }
+      return value || 'photo';
+    }
+
     function mediaTypeAllowed(type) {
       const selected = selectedMediaType();
-      return selected === 'all' || selected === type;
+      return selected === 'all' || selected === normalizeMediaType(type);
+    }
+
+    function filterMediaWithFallback(mediaItems) {
+      const allItems = Array.isArray(mediaItems) ? mediaItems.filter((media) => media && media.url) : [];
+      const filtered = allItems.filter((media) => mediaTypeAllowed(media.type));
+      return { filtered, allItems };
     }
 
     function selectedAlbumSortBy() {
@@ -990,12 +1269,42 @@
       return document.getElementById(inputId)?.value || 'all';
     }
 
-    function albumQueryParams(extraHidden = false) {
+    function albumQueryParams(extraHidden = false, siteOverride = '') {
       return new URLSearchParams({
         sort: selectedAlbumSortBy(),
         dir: selectedAlbumSortDir(),
         hidden: String(extraHidden || selectedHiddenOnly()),
+        site: siteOverride || selectedFeedSite(selectedFeedNetwork()),
       }).toString();
+    }
+
+    function selectedSiteFromControl(controlId, fallback = 'https://www.erome.com') {
+      return document.getElementById(controlId)?.value || fallback;
+    }
+
+    function selectedSearchSite() {
+      return selectedSiteFromControl('searchSite', selectedFeedSite('xxxerome'));
+    }
+
+    function selectedExploreSite() {
+      return selectedSiteFromControl('exploreSite', selectedFeedSite('xxxerome'));
+    }
+
+    function selectedProfileSite() {
+      return selectedSiteFromControl('profileSite', selectedFeedSite('xxxerome'));
+    }
+
+    function looksLikeAbsoluteProfileUrl(value) {
+      return /^https?:\/\//i.test(String(value || '').trim());
+    }
+
+    function inferPreferredSiteFromProfileValue(value) {
+      const raw = String(value || '').trim().toLowerCase();
+      if (!raw) return '';
+      if (raw.includes('xxxerome.com') || raw.startsWith('a/onlyfans/') || raw.includes('/a/onlyfans/')) {
+        return 'https://xxxerome.com';
+      }
+      return '';
     }
 
     function normalizeHashtagLabel(value) {
@@ -1094,6 +1403,21 @@
     function effectiveRedditFeedKind() {
       const kind = document.getElementById('redditFeedKind').value || 'home';
       return redditSearchQueryFromInput() ? 'search' : kind;
+    }
+
+    function selectedFeedNetwork() {
+      const value = document.getElementById('feedNetwork').value || 'erome';
+      return value === 'both' ? 'all' : value;
+    }
+
+    function selectedFeedSite(network = selectedFeedNetwork()) {
+      if (network === 'xxxerome') return 'https://xxxerome.com';
+      return document.getElementById('feedSite')?.value || 'https://www.erome.com';
+    }
+
+    function twitterSearchQueryFromInput() {
+      const explicit = document.getElementById('twitterQuery').value || '';
+      return normalizeRedditSearchQuery(explicit || feedSearchQuery() || 'filter:media');
     }
 
     function normalizeFilterTerm(value) {
@@ -1286,10 +1610,16 @@
         FORM_SETTING_IDS.forEach((id) => {
           const element = document.getElementById(id);
           if (element && Object.prototype.hasOwnProperty.call(formValues, id)) {
+            let savedValue = id === 'feedNetwork' && formValues[id] === 'both' ? 'all' : formValues[id];
+            // Migrate stale defaults so runtime pulls XXXErome instead of Erome.
+            if (id === 'feedNetwork' && savedValue === 'erome') savedValue = 'xxxerome';
+            if (['feedSite', 'searchSite', 'exploreSite', 'profileSite'].includes(id) && String(savedValue) === 'https://www.erome.com') {
+              savedValue = 'https://xxxerome.com';
+            }
             if (element.type === 'checkbox') {
-              element.checked = formValues[id] === true || formValues[id] === 'true';
+              element.checked = savedValue === true || savedValue === 'true';
             } else {
-              element.value = formValues[id];
+              element.value = savedValue;
             }
           }
         });
@@ -1342,6 +1672,7 @@
         document.getElementById('downloadOverwrite').value = settings.overwrite ? 'true' : 'false';
         document.getElementById('downloadWorkers').value = settings.max_workers || 4;
         applyFormSettings(settings.form_values || {});
+        syncProfileInputs('', false);
       } catch (error) {
         console.warn('Could not load backend state', error);
       }
@@ -1588,7 +1919,8 @@
       showResultPreview(false);
       resultPreviewScrollEl.innerHTML = '';
       const albumVisible = !album || albumMatchesHideTerms(album);
-      const filtered = albumVisible ? (mediaItems || []).filter((media) => media && media.url && mediaTypeAllowed(media.type)) : [];
+      const filteredResult = albumVisible ? filterMediaWithFallback(mediaItems || []) : { filtered: [], allItems: [] };
+      const filtered = filteredResult.filtered;
       resultState.album = album || null;
       resultState.allMedia = mediaItems || [];
       resultState.media = filtered;
@@ -1745,6 +2077,10 @@
       if (!result || typeof result !== 'object') return result;
       const emptyArrayData = Array.isArray(result.data) && result.data.length === 0;
       const emptyAlbumMedia = action === 'albumInfo' && result.data && Array.isArray(result.data.media) && result.data.media.length === 0;
+      if (action === 'download' && emptyArrayData) {
+        result.hint = 'No downloadable items matched the current Photos/Videos filter. Try Photos + Videos.';
+        return result;
+      }
       if (emptyArrayData || emptyAlbumMedia) {
         result.hint = 'The server works, but Erome returned no parsed items. Use Diagnostics tab to check if Erome is blocking/sanitizing responses from this environment.';
       }
@@ -1811,21 +2147,24 @@
         const limit = Number(document.getElementById('searchLimit').value || 1);
         const hidden = document.getElementById('searchHidden').value === 'true';
         const route = hidden ? '/api/hidden-search' : '/api/search';
-        return getJson(`${route}?keyword=${keyword}&match_mode=${matchMode}&page=${page}&limit=${limit}&${albumQueryParams(hidden)}`);
+        return getJson(`${route}?keyword=${keyword}&match_mode=${matchMode}&page=${page}&limit=${limit}&${albumQueryParams(hidden, selectedSearchSite())}`);
       },
       explore: () => {
         const page = Number(document.getElementById('explorePage').value || 1);
         const limit = Number(document.getElementById('exploreLimit').value || 1);
         const isNew = document.getElementById('exploreNew').value;
-        return getJson(`/api/explore?page=${page}&limit=${limit}&new=${isNew}&${albumQueryParams()}`);
+        return getJson(`/api/explore?page=${page}&limit=${limit}&new=${isNew}&${albumQueryParams(false, selectedExploreSite())}`);
       },
       profile: () => {
-        const profile = encodeURIComponent(document.getElementById('profileName').value || '');
+        const rawProfile = document.getElementById('profileName').value || '';
+        const profile = encodeURIComponent(rawProfile);
         const page = Number(document.getElementById('profilePage').value || 1);
         const limitValue = document.getElementById('profileLimit').value;
         const limit = limitValue === '' ? 0 : Number(limitValue);
         const content = encodeURIComponent(document.getElementById('profileContent').value || 'albums');
-        return getJson(`/api/profile?profile=${profile}&page=${page}&limit=${limit}&content=${content}&${albumQueryParams()}`);
+        const inferredSite = inferPreferredSiteFromProfileValue(rawProfile);
+        const siteOverride = looksLikeAbsoluteProfileUrl(rawProfile) ? '' : (inferredSite || selectedProfileSite());
+        return getJson(`/api/profile?profile=${profile}&page=${page}&limit=${limit}&content=${content}&${albumQueryParams(false, siteOverride)}`);
       },
       version: () => {
         const version = encodeURIComponent(document.getElementById('versionValue').value || 'all');
@@ -1862,7 +2201,8 @@
         if (contentType.startsWith('image/')) {
           previewEl.innerHTML = `<img src="${objectUrl}" alt="preview">`;
         } else if (contentType.startsWith('video/')) {
-          previewEl.innerHTML = `<video src="${objectUrl}" controls></video>`;
+          previewEl.innerHTML = '';
+          previewEl.appendChild(createVideoPlayerPreview(objectUrl, 'Preview'));
         } else {
           previewEl.innerHTML = `<div class="muted">Received ${blob.size} bytes (${contentType || 'application/octet-stream'})</div>`;
         }
@@ -1884,7 +2224,27 @@
           overwrite: document.getElementById('downloadOverwrite').value === 'true',
           max_workers: Number(document.getElementById('downloadWorkers').value || 4),
         };
-        return startDownloadJob('/api/download/jobs', body);
+        return startDownloadJob('/api/download/jobs', body).then(async (result) => {
+          const media = Array.isArray(result && result.data) ? result.data : [];
+          const shouldRetryAll =
+            result && result.job && result.job.status === 'done' &&
+            media.length === 0 &&
+            body.include_photos !== body.include_videos;
+          if (!shouldRetryAll) return result;
+
+          setStatus('No media matched current type. Retrying with photos + videos...', true);
+          document.getElementById('downloadPhotos').value = 'true';
+          document.getElementById('downloadVideos').value = 'true';
+          document.getElementById('resultMediaType').value = 'all';
+          scheduleSettingsSave();
+
+          return startDownloadJob('/api/download/jobs', {
+            ...body,
+            include_photos: true,
+            include_videos: true,
+            media_type: 'all',
+          });
+        });
       },
     };
 
@@ -1988,6 +2348,7 @@
       running: false,
       page: 1,
       redditAfter: '',
+      twitterAfter: '',
       albumQueue: [],
       seenAlbums: new Set(),
       seenMedia: new Set(),
@@ -1995,6 +2356,8 @@
       loadingMore: false,
       finished: false,
       autoSeenAlbums: new Set(),
+      noProgressBatches: 0,
+      pendingMediaDownloads: new Set(),
     };
 
     const AUTO_SEEN_DWELL_MS = 1500;
@@ -2042,7 +2405,7 @@
     }
     function mediaDisplayUrl(mediaUrl, source = 'erome') {
       if (!mediaUrl) return '';
-      return source === 'reddit' ? mediaUrl : proxyUrl(mediaUrl);
+      return (source === 'reddit' || source === 'twitter') ? mediaUrl : proxyUrl(mediaUrl);
     }
     function downloadUrl(mediaUrl) {
       return `/proxy?url=${encodeURIComponent(mediaUrl)}&download=1`;
@@ -2077,6 +2440,210 @@
         if (img) img.removeAttribute('src');
       }
       item.dataset.attached = '0';
+    }
+
+    function formatPlayerTime(time) {
+      if (!Number.isFinite(time) || time < 0) return '0:00';
+      const total = Math.floor(time);
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const seconds = total % 60;
+      if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+      return `${minutes}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function clampPlayerValue(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function updateVideoPlayerClone(player) {
+      const video = player.querySelector('video');
+      if (!video) return;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      const current = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+      const progress = duration ? clampPlayerValue(current / duration, 0, 1) : 0;
+      const currentEl = player.querySelector('.yt-clone-current');
+      const durationEl = player.querySelector('.yt-clone-duration');
+      const progressEl = player.querySelector('.yt-clone-timeline-progress');
+      const thumbEl = player.querySelector('.yt-clone-thumb');
+      const playEl = player.querySelector('.yt-clone-play');
+      const muteEl = player.querySelector('.yt-clone-mute');
+      const volumeEl = player.querySelector('.yt-clone-volume-slider');
+      if (currentEl) currentEl.textContent = formatPlayerTime(current);
+      if (durationEl) durationEl.textContent = formatPlayerTime(duration);
+      if (progressEl) progressEl.style.width = `${progress * 100}%`;
+      if (thumbEl) thumbEl.style.left = `${progress * 100}%`;
+      if (playEl) playEl.textContent = video.paused ? 'Play' : 'Pause';
+      if (muteEl) muteEl.textContent = video.muted || video.volume === 0 ? 'Muted' : 'Mute';
+      if (volumeEl && document.activeElement !== volumeEl) volumeEl.value = video.muted ? '0' : String(video.volume || 0);
+      player.classList.toggle('paused', video.paused);
+      player.classList.toggle('playing', !video.paused);
+    }
+
+    function scheduleVideoPlayerControlsHide(player) {
+      if (player._hideTimer) clearTimeout(player._hideTimer);
+      player._hideTimer = setTimeout(() => {
+        const video = player.querySelector('video');
+        if (video && !video.paused) player.classList.remove('show-controls');
+      }, 1800);
+    }
+
+    function revealVideoPlayerControls(player) {
+      player.classList.add('show-controls');
+      scheduleVideoPlayerControlsHide(player);
+    }
+
+    function seekVideoPlayerFromPointer(player, clientX) {
+      const timeline = player.querySelector('.yt-clone-timeline');
+      const video = player.querySelector('video');
+      if (!timeline || !video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+      const rect = timeline.getBoundingClientRect();
+      const percent = clampPlayerValue((clientX - rect.left) / rect.width, 0, 1);
+      video.currentTime = percent * video.duration;
+      updateVideoPlayerClone(player);
+    }
+
+    function previewVideoPlayerFromPointer(player, clientX) {
+      const timeline = player.querySelector('.yt-clone-timeline');
+      const video = player.querySelector('video');
+      if (!timeline || !video) return;
+      const rect = timeline.getBoundingClientRect();
+      const percent = clampPlayerValue((clientX - rect.left) / rect.width, 0, 1);
+      const previewEl = player.querySelector('.yt-clone-timeline-preview');
+      const tooltipEl = player.querySelector('.yt-clone-tooltip');
+      if (previewEl) previewEl.style.width = `${percent * 100}%`;
+      if (tooltipEl) {
+        tooltipEl.style.left = `${percent * 100}%`;
+        tooltipEl.textContent = formatPlayerTime((Number.isFinite(video.duration) ? video.duration : 0) * percent);
+      }
+    }
+
+    function createVideoPlayerClone(album, media, source, item) {
+      const player = document.createElement('div');
+      player.className = 'yt-clone-player paused show-controls';
+      player.tabIndex = 0;
+
+      const video = document.createElement('video');
+      if (media.thumb_url) video.poster = mediaDisplayUrl(media.thumb_url, source);
+      video.playsInline = true;
+      video.muted = shouldStartVideosMuted();
+      video.addEventListener('volumechange', syncFeedMutePreferenceFromVideo);
+      video.loop = false;
+      video.addEventListener('ended', () => advanceToNextFeedItem(item));
+      video.preload = 'none';
+      video.addEventListener('click', () => video.paused ? video.play().catch(() => {}) : video.pause());
+      video.addEventListener('loadedmetadata', () => updateVideoPlayerClone(player));
+      video.addEventListener('timeupdate', () => updateVideoPlayerClone(player));
+      video.addEventListener('play', () => {
+        revealVideoPlayerControls(player);
+        updateVideoPlayerClone(player);
+      });
+      video.addEventListener('pause', () => {
+        player.classList.add('show-controls');
+        updateVideoPlayerClone(player);
+      });
+      const minSec = Math.max(0, Number(document.getElementById('feedMinSec').value || 0));
+      if (minSec > 0) {
+        video.addEventListener('loadedmetadata', () => {
+          if (Number.isFinite(video.duration) && video.duration < minSec) {
+            item.dataset.filtered = '1';
+            item.style.display = 'none';
+          }
+        }, { once: true });
+      }
+      player.appendChild(video);
+
+      const shadow = document.createElement('div');
+      shadow.className = 'yt-clone-shadow';
+      player.appendChild(shadow);
+
+      const controls = document.createElement('div');
+      controls.className = 'yt-clone-controls';
+      controls.innerHTML = `
+        <div class="yt-clone-timeline" aria-label="Seek video">
+          <div class="yt-clone-timeline-track"></div>
+          <div class="yt-clone-timeline-preview"></div>
+          <div class="yt-clone-timeline-progress"></div>
+          <div class="yt-clone-thumb"></div>
+          <div class="yt-clone-tooltip">0:00</div>
+        </div>
+        <div class="yt-clone-bar">
+          <div class="yt-clone-left-controls">
+            <button type="button" class="yt-clone-icon-btn yt-clone-play" aria-label="Play or pause">Play</button>
+            <div class="yt-clone-volume-group">
+              <button type="button" class="yt-clone-icon-btn yt-clone-mute" aria-label="Mute">Mute</button>
+              <input class="yt-clone-volume-slider" type="range" min="0" max="1" step="any" value="${video.muted ? 0 : 1}" aria-label="Volume">
+            </div>
+            <div class="yt-clone-time-display"><span class="yt-clone-current">0:00</span><span>/</span><span class="yt-clone-duration">0:00</span></div>
+          </div>
+          <div class="yt-clone-right-controls">
+            <button type="button" class="yt-clone-pill-btn yt-clone-speed" aria-label="Playback speed">1x</button>
+            <button type="button" class="yt-clone-icon-btn yt-clone-theater" aria-label="Theater mode">Wide</button>
+            <button type="button" class="yt-clone-icon-btn yt-clone-pip" aria-label="Picture in picture">PiP</button>
+            <button type="button" class="yt-clone-icon-btn yt-clone-fullscreen" aria-label="Fullscreen">Full</button>
+          </div>
+        </div>`;
+      player.appendChild(controls);
+
+      const titlebar = document.createElement('div');
+      titlebar.className = 'yt-clone-titlebar';
+      titlebar.innerHTML = `<div class="yt-clone-kicker">YouTube-style player</div><div class="yt-clone-title">${escapeHtml(album.title || 'Video')}</div>`;
+      player.appendChild(titlebar);
+
+      const timeline = controls.querySelector('.yt-clone-timeline');
+      timeline.addEventListener('click', (event) => seekVideoPlayerFromPointer(player, event.clientX));
+      timeline.addEventListener('mousemove', (event) => previewVideoPlayerFromPointer(player, event.clientX));
+      controls.querySelector('.yt-clone-play').onclick = () => video.paused ? video.play().catch(() => {}) : video.pause();
+      controls.querySelector('.yt-clone-mute').onclick = () => { video.muted = !video.muted; updateVideoPlayerClone(player); };
+      controls.querySelector('.yt-clone-volume-slider').oninput = (event) => {
+        const nextVolume = clampPlayerValue(Number(event.target.value || 0), 0, 1);
+        video.volume = nextVolume;
+        video.muted = nextVolume === 0;
+        updateVideoPlayerClone(player);
+      };
+      controls.querySelector('.yt-clone-speed').onclick = (event) => {
+        const nextRate = video.playbackRate >= 2 ? 0.5 : Number((video.playbackRate + 0.25).toFixed(2));
+        video.playbackRate = nextRate;
+        event.currentTarget.textContent = `${nextRate}x`;
+      };
+      controls.querySelector('.yt-clone-theater').onclick = () => player.classList.toggle('theater');
+      controls.querySelector('.yt-clone-pip').onclick = async () => {
+        if (!document.pictureInPictureEnabled) return;
+        try {
+          if (document.pictureInPictureElement) await document.exitPictureInPicture();
+          else await video.requestPictureInPicture();
+        } catch {}
+      };
+      controls.querySelector('.yt-clone-fullscreen').onclick = async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await player.requestFullscreen();
+        } catch {}
+      };
+      player.addEventListener('fullscreenchange', () => player.classList.toggle('full-screen', document.fullscreenElement === player));
+      player.addEventListener('mousemove', () => revealVideoPlayerControls(player));
+      player.addEventListener('mouseleave', () => { if (!video.paused) player.classList.remove('show-controls'); });
+      player.addEventListener('keydown', (event) => {
+        const key = event.key.toLowerCase();
+        if (key === ' ' || key === 'k') { event.preventDefault(); video.paused ? video.play().catch(() => {}) : video.pause(); }
+        if (key === 'm') { video.muted = !video.muted; updateVideoPlayerClone(player); }
+        if (key === 'f') controls.querySelector('.yt-clone-fullscreen').click();
+        if (key === 'arrowleft' || key === 'j') video.currentTime = Math.max(0, video.currentTime - 5);
+        if (key === 'arrowright' || key === 'l') video.currentTime = Math.min(video.duration || video.currentTime + 5, video.currentTime + 5);
+      });
+      updateVideoPlayerClone(player);
+      return player;
+    }
+
+    function createVideoPlayerPreview(videoUrl, title) {
+      const previewItem = document.createElement('div');
+      const player = createVideoPlayerClone({ title: title || 'Preview' }, { type: 'video', url: videoUrl }, 'direct', previewItem);
+      const video = player.querySelector('video');
+      if (video) {
+        video.src = videoUrl;
+        video.load();
+      }
+      return player;
     }
 
     function updateAttachWindow(activeIdx) {
@@ -2122,6 +2689,7 @@
       const item = document.createElement('div');
       const source = media.source || album.source || 'erome';
       const isReddit = source === 'reddit';
+      const isExternalFeedSource = source === 'reddit' || source === 'twitter';
       item.className = 'feed-item';
       item.dataset.type = media.type;
       item.dataset.src = media.url;
@@ -2136,25 +2704,7 @@
       item.appendChild(badge);
 
       if (media.type === 'video') {
-        const video = document.createElement('video');
-        if (media.thumb_url) video.poster = mediaDisplayUrl(media.thumb_url, source);
-        video.controls = true;
-        video.playsInline = true;
-        video.muted = shouldStartVideosMuted();
-        video.addEventListener('volumechange', syncFeedMutePreferenceFromVideo);
-        video.loop = false;
-        video.addEventListener('ended', () => advanceToNextFeedItem(item));
-        video.preload = 'none';
-        const minSec = Math.max(0, Number(document.getElementById('feedMinSec').value || 0));
-        if (minSec > 0) {
-          video.addEventListener('loadedmetadata', () => {
-            if (Number.isFinite(video.duration) && video.duration < minSec) {
-              item.dataset.filtered = '1';
-              item.style.display = 'none';
-            }
-          }, { once: true });
-        }
-        item.appendChild(video);
+        item.appendChild(createVideoPlayerClone(album, media, source, item));
       } else {
         const img = document.createElement('img');
         img.loading = 'lazy';
@@ -2171,10 +2721,11 @@
       download.textContent = '⬇';
       download.onclick = () => downloadMediaToDir(media, album);
       actions.appendChild(download);
-      if (isReddit) {
+      if (isExternalFeedSource) {
         const open = document.createElement('button');
         open.type = 'button';
-        open.title = 'Open Reddit source';
+        if (source === 'twitter') open.title = 'Open Twitter/X source';
+        else open.title = 'Open Reddit source';
         open.textContent = 'Open';
         open.onclick = () => window.open(media.permalink || album.url || media.source_url || album.source_url, '_blank', 'noopener');
         actions.appendChild(open);
@@ -2211,7 +2762,9 @@
       const albumUrl = safeExternalUrl(album.url || media.permalink || media.source_url);
       const sourceLabel = isReddit
         ? `Reddit ${escapeHtml(album.subreddit || '')} ${escapeHtml(album.username || '')}`
-        : 'Erome';
+        : source === 'twitter'
+          ? `Twitter/X ${escapeHtml(album.username || '')}`
+          : 'Erome';
       meta.innerHTML = `<div><b>${safeTitle}</b></div><div>${sourceLabel} · <a href="${albumUrl}" target="_blank" rel="noopener">Open source ↗</a></div>`;
       item.appendChild(meta);
       return item;
@@ -2243,7 +2796,8 @@
       if (!path) { setStatus('No album path found', false); return; }
       await saveBackendSettings();
       const mediaType = selectedMediaType();
-      const albumItems = Array.from(document.querySelectorAll(`.feed-item[data-album-path="${path}"]`));
+      const albumItems = Array.from(document.querySelectorAll('.feed-item'))
+        .filter((el) => (el.dataset.albumPath || '') === path);
       albumItems.forEach(el => {
         el.classList.remove('dl-done', 'dl-error');
         el.classList.add('dl-pending');
@@ -2290,11 +2844,18 @@
         setStatus('Media skipped by selected type filter', false);
         return;
       }
+      const mediaKey = String(media.url || '').trim();
+      if (!mediaKey) { setStatus('No media URL found', false); return; }
+      if (feedState.pendingMediaDownloads.has(mediaKey)) {
+        setStatus('This media is already downloading.', false);
+        return;
+      }
+      feedState.pendingMediaDownloads.add(mediaKey);
       await saveBackendSettings();
       try {
         setStatus('Starting media download job...', true);
         const result = await startDownloadJob('/api/download/media/jobs', {
-          url: media.url,
+          url: mediaKey,
           album: album.url || '',
           directory: selectedDownloadDirectory(),
           overwrite: document.getElementById('downloadOverwrite').value === 'true',
@@ -2310,22 +2871,56 @@
         return result;
       } catch (error) {
         setStatus('Media download failed: ' + (error.message || error), false);
+      } finally {
+        feedState.pendingMediaDownloads.delete(mediaKey);
       }
     }
 
     async function previewAlbum(album) {
-      const path = albumPathFromUrl(album.url);
-      if (!path) { setStatus('No album path found', false); return; }
+      let currentAlbum = album;
+      const visitedAlbumUrls = new Set();
       resultPreviewLoadingEl.hidden = false;
       setStatus('Loading album preview...', true);
       try {
-        await markAlbumState(album, 'seen', { silent: true, rerender: false });
-        const result = await getJson(`/api/album/info?path=${encodeURIComponent(path)}`);
-        const data = result.data || {};
-        resultState.mediaByAlbum.set(album.url || path, data.media || []);
-        showJson(result);
-        renderMediaFeed(data, data.media || []);
-        setStatus('Album preview loaded', true);
+        while (currentAlbum) {
+          const path = albumPathFromUrl(currentAlbum.url);
+          if (!path) {
+            const nextAlbum = nextAlbumForPreviewFallback(currentAlbum);
+            if (!nextAlbum) {
+              setStatus('No album path found', false);
+              return;
+            }
+            currentAlbum = nextAlbum;
+            continue;
+          }
+          if (visitedAlbumUrls.has(currentAlbum.url || path)) {
+            setStatus('No media found in remaining posts.', false);
+            return;
+          }
+          visitedAlbumUrls.add(currentAlbum.url || path);
+          await markAlbumState(currentAlbum, 'seen', { silent: true, rerender: false });
+          const result = await getJson(`/api/album/info?path=${encodeURIComponent(path)}`);
+          const data = result.data || {};
+          const mediaItems = Array.isArray(data.media) ? data.media : [];
+          resultState.mediaByAlbum.set(currentAlbum.url || path, mediaItems);
+          const matchingMedia = mediaItems.filter((item) => item && item.url && mediaTypeAllowed(item.type));
+          if (!matchingMedia.length) {
+            const nextAlbum = nextAlbumForPreviewFallback(currentAlbum);
+            if (nextAlbum && !visitedAlbumUrls.has(nextAlbum.url || '')) {
+              const selectedType = selectedMediaType();
+              const reason = selectedType === 'all'
+                ? 'No media in this post. Loading next post...'
+                : `No ${selectedType} in this post. Loading next post...`;
+              setStatus(reason, true);
+              currentAlbum = nextAlbum;
+              continue;
+            }
+          }
+          showJson(result);
+          renderMediaFeed(data, mediaItems);
+          setStatus('Album preview loaded', true);
+          return;
+        }
       } catch (error) {
         setStatus('Album preview failed: ' + (error.message || error), false);
       } finally {
@@ -2333,9 +2928,25 @@
       }
     }
 
+    function nextAlbumForPreviewFallback(currentAlbum) {
+      const albums = Array.isArray(resultState.albums) && resultState.albums.length ? resultState.albums : resultState.allAlbums;
+      if (!Array.isArray(albums) || !albums.length) return null;
+      const currentUrl = String(currentAlbum && currentAlbum.url || '').trim();
+      const startIndex = Math.max(0, albums.findIndex((album) => String(album && album.url || '').trim() === currentUrl));
+      for (let index = startIndex + 1; index < albums.length; index += 1) {
+        const candidate = albums[index];
+        if (!candidate || !candidate.url) continue;
+        return candidate;
+      }
+      return null;
+    }
+
     function currentProfileAlbums() {
-      if (resultState.profile && Array.isArray(resultState.allAlbums) && resultState.allAlbums.length) {
+      if (Array.isArray(resultState.albums) && resultState.albums.length) {
         return resultState.albums;
+      }
+      if (Array.isArray(resultState.allAlbums) && resultState.allAlbums.length) {
+        return resultState.allAlbums;
       }
       return resultState.profile && Array.isArray(resultState.profile.albums) ? resultState.profile.albums : [];
     }
@@ -2356,19 +2967,23 @@
           setStatus(`Loading profile album ${index + 1}/${albums.length}`, true);
           const media = await fetchAlbumMedia(album);
           resultState.mediaByAlbum.set(album.url || album.title || String(index), media);
-          media.filter((item) => mediaTypeAllowed(item.type)).forEach((item) => combined.push({ album, media: item }));
+          media.filter((item) => item && item.url).forEach((item) => {
+            item.type = normalizeMediaType(item.type);
+            combined.push({ album, media: item });
+          });
         }
+        const filteredCombined = combined.filter(({ media }) => mediaTypeAllowed(media.type));
         resultPreviewScrollEl.innerHTML = '';
         const io = ensureResultObserver();
-        combined.forEach(({ album, media }) => {
+        filteredCombined.forEach(({ album, media }) => {
           const item = makeFeedItem(album, media);
           resultPreviewScrollEl.appendChild(item);
           io.observe(item);
         });
         Array.from(resultPreviewScrollEl.children).slice(0, 3).forEach(attachMedia);
-        resultPreviewEmptyEl.style.display = combined.length ? 'none' : '';
-        resultPreviewEmptyEl.textContent = combined.length ? '' : 'No profile media matches the selected type.';
-        setStatus(`Profile preview loaded: ${combined.length} item(s)`, true);
+        resultPreviewEmptyEl.style.display = filteredCombined.length ? 'none' : '';
+        resultPreviewEmptyEl.textContent = filteredCombined.length ? '' : 'No profile media found.';
+        setStatus(`Profile preview loaded: ${filteredCombined.length} item(s)`, true);
       } catch (error) {
         setStatus('Profile preview failed: ' + (error.message || error), false);
       } finally {
@@ -2404,29 +3019,131 @@
         const matchMode = encodeURIComponent(selectedSearchMatchMode('feedMatchMode'));
         url = `/api/search?keyword=${keyword}&match_mode=${matchMode}&page=${page}&limit=${page}&${albumQueryParams()}`;
       } else if (source === 'profile' || source === 'profileReposts') {
-        const rawProfile = document.getElementById('feedProfileName').value || document.getElementById('profileName').value || '';
-        const profile = encodeURIComponent(rawProfile);
-        if (!profile) throw new Error('Enter a profile username or URL for the feed.');
-        url = source === 'profileReposts'
-          ? `/api/profile?profile=${profile}&page=${page}&limit=${page}&content=reposts&${albumQueryParams()}`
-          : `/api/profile?profile=${profile}&page=${page}&limit=${page}&content=albums&${albumQueryParams()}`;
+        const feedRawProfile = (document.getElementById('feedProfileName').value || '').trim();
+        const profileTabRawProfile = (document.getElementById('profileName').value || '').trim();
+        const primaryProfile = feedRawProfile || profileTabRawProfile;
+        const secondaryProfile =
+          feedRawProfile && profileTabRawProfile && feedRawProfile !== profileTabRawProfile
+            ? profileTabRawProfile
+            : '';
+        if (!primaryProfile) throw new Error('Enter a profile username or URL for the feed.');
+
+        const fetchProfileBatch = async (rawProfile) => {
+          const profile = encodeURIComponent(rawProfile);
+          const inferredSite = inferPreferredSiteFromProfileValue(rawProfile);
+          const feedProfileSiteOverride = looksLikeAbsoluteProfileUrl(rawProfile) ? '' : (inferredSite || selectedFeedSite(selectedFeedNetwork()));
+          const profileUrl = source === 'profileReposts'
+            ? `/api/profile?profile=${profile}&page=${page}&limit=${page}&content=reposts&${albumQueryParams(false, feedProfileSiteOverride)}`
+            : `/api/profile?profile=${profile}&page=${page}&limit=${page}&content=albums&${albumQueryParams(false, feedProfileSiteOverride)}`;
+          return getJson(profileUrl);
+        };
+
+        let res = await fetchProfileBatch(primaryProfile);
+        let rawAlbums = Array.isArray(res.data) ? res.data : (Array.isArray(res.data && res.data.albums) ? res.data.albums : []);
+        if (!rawAlbums.length && secondaryProfile) {
+          setStatus('No albums in feed profile field. Retrying with Profile tab value...', true);
+          res = await fetchProfileBatch(secondaryProfile);
+          rawAlbums = Array.isArray(res.data) ? res.data : (Array.isArray(res.data && res.data.albums) ? res.data.albums : []);
+        }
+        feedState.page = page + 1;
+        const visible = visibleAlbums(rawAlbums);
+        const albums = visible.filter((a) => {
+          const key = a.url || a.title;
+          if (!key || feedState.seenAlbums.has(key)) return false;
+          feedState.seenAlbums.add(key);
+          return true;
+        }).slice(0, albumLimit);
+        return {
+          albums,
+          rawCount: rawAlbums.length,
+          visibleCount: visible.length,
+        };
       } else {
         const isNew = source === 'exploreNew' ? 'true' : 'false';
         url = `/api/explore?page=${page}&limit=${page}&new=${isNew}&${albumQueryParams()}`;
       }
       const res = await getJson(url);
       feedState.page = page + 1;
-      const albums = Array.isArray(res.data) ? res.data : (Array.isArray(res.data && res.data.albums) ? res.data.albums : []);
-      return visibleAlbums(albums).filter((a) => {
+      const rawAlbums = Array.isArray(res.data) ? res.data : (Array.isArray(res.data && res.data.albums) ? res.data.albums : []);
+      const visible = visibleAlbums(rawAlbums);
+      const albums = visible.filter((a) => {
         const key = a.url || a.title;
         if (!key || feedState.seenAlbums.has(key)) return false;
         feedState.seenAlbums.add(key);
         return true;
       }).slice(0, albumLimit);
+      return {
+        albums,
+        rawCount: rawAlbums.length,
+        visibleCount: visible.length,
+      };
     }
 
     async function fetchAlbumBatch() {
       return fetchEromeAlbumBatch();
+    }
+
+    function feedEmptyMessage(network, eromeBatch, redditCount, twitterCount, added, filter, providerMessages = []) {
+      const eromeRawCount = eromeBatch && Number.isFinite(eromeBatch.rawCount) ? eromeBatch.rawCount : 0;
+      const eromeVisibleCount = eromeBatch && Number.isFinite(eromeBatch.visibleCount) ? eromeBatch.visibleCount : 0;
+      const eromeAlbumCount = eromeBatch && Array.isArray(eromeBatch.albums) ? eromeBatch.albums.length : 0;
+
+      if (network === 'reddit') {
+        if (redditCount === 0) return 'No feed items returned.';
+        return filter === 'all' ? 'Feed items loaded, but none matched the current filters.' : `Feed items loaded, but no ${filter} items matched.`;
+      }
+
+      if (network === 'twitter') {
+        if (providerMessages.length) return providerMessages.join(' ');
+        if (twitterCount === 0) return 'No Twitter/X feed items returned.';
+        return filter === 'all' ? 'Twitter/X items loaded, but none matched the current filters.' : `Twitter/X items loaded, but no ${filter} items matched.`;
+      }
+
+      if (network === 'all') {
+        if (eromeRawCount === 0 && redditCount === 0 && twitterCount === 0 && providerMessages.length) return providerMessages.join(' ');
+        if (eromeRawCount === 0 && redditCount === 0 && twitterCount === 0) return 'No feed items returned.';
+        if (eromeRawCount > 0 && eromeVisibleCount === 0 && redditCount === 0) {
+          return 'Albums matched, but current hide/history filters removed them all.';
+        }
+        return filter === 'all' ? 'Feed items loaded, but none matched the current filters.' : `Feed items loaded, but no ${filter} items matched.`;
+      }
+
+      if (eromeRawCount === 0) {
+        const source = effectiveEromeFeedSource();
+        const query = feedSearchQuery();
+        if (source === 'search' && query) return `No albums matched the current search: ${query}.`;
+        if ((source === 'profile' || source === 'profileReposts') && (document.getElementById('feedProfileName').value || document.getElementById('profileName').value)) {
+          return 'No albums found for that profile.';
+        }
+        return 'No albums returned.';
+      }
+
+      if (eromeVisibleCount === 0) {
+        return 'Albums matched, but current hide/history filters removed them all.';
+      }
+
+      if (eromeAlbumCount > 0 && added === 0) {
+        return filter === 'all' ? 'Albums loaded, but no media items could be displayed.' : `Albums loaded, but no ${filter} items matched.`;
+      }
+
+      return 'No albums returned.';
+    }
+
+    async function fetchTwitterFeedBatch() {
+      const params = new URLSearchParams({
+        query: twitterSearchQueryFromInput(),
+        profile: document.getElementById('twitterProfile').value || '',
+        limit: String(Math.max(1, Number(document.getElementById('twitterItemsPerBatch').value || 10))),
+      });
+      if (feedState.twitterAfter) params.set('after', feedState.twitterAfter);
+      const response = await getJson(`/api/twitter/feed?${params.toString()}`);
+      const data = response.data || {};
+      feedState.twitterAfter = data.after || '';
+      return {
+        items: Array.isArray(data.items) ? data.items : [],
+        unavailable: !!data.unavailable,
+        message: data.message || '',
+      };
     }
 
     async function fetchRedditFeedBatch() {
@@ -2448,7 +3165,7 @@
       return Array.isArray(data.items) ? data.items : [];
     }
 
-    function appendRedditFeedItems(items, filter) {
+    function appendExternalFeedItems(items, filter) {
       const io = ensureFeedObserver();
       let added = 0;
       for (const itemData of items) {
@@ -2464,6 +3181,10 @@
         added += 1;
       }
       return added;
+    }
+
+    function appendRedditFeedItems(items, filter) {
+      return appendExternalFeedItems(items, filter);
     }
 
     async function appendEromeFeedAlbums(albums, filter, itemsPerAlbum) {
@@ -2488,24 +3209,36 @@
       return addedTotal;
     }
 
-    async function appendMixedFeedItems(eromeAlbums, redditItems, filter, itemsPerAlbum) {
+    async function appendMixedFeedItems(eromeAlbums, externalItems, filter, itemsPerAlbum) {
       const before = feedScrollEl.children.length;
       await appendEromeFeedAlbums(eromeAlbums, filter, itemsPerAlbum);
-      appendRedditFeedItems(redditItems, filter);
+      appendExternalFeedItems(externalItems, filter);
       return feedScrollEl.children.length - before;
     }
 
     function albumPathFromUrl(url) {
       if (!url) return '';
-      const match = url.match(/\/a\/([A-Za-z0-9]+)/);
-      return match ? match[1] : url;
+      try {
+        const parsed = new URL(url, window.location.origin);
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        const index = parts.indexOf('a');
+        if (index >= 0 && parts[index + 1]) return parts[index + 1];
+        if (parts[0] === 'post' && parts.length >= 2) return parts.join('/');
+        return String(url).trim();
+      } catch {
+        const match = String(url).match(/\/a\/([^/?#]+)/);
+        if (match) return match[1];
+        const postMatch = String(url).match(/\/?(post\/[^?#]+)/);
+        return postMatch ? postMatch[1].replace(/^\//, '') : String(url).trim();
+      }
     }
 
     async function fetchAlbumMedia(album) {
       const path = albumPathFromUrl(album.url);
       if (!path) return [];
       try {
-        const res = await getJson(`/api/album/info?path=${encodeURIComponent(path)}`);
+        const lookup = album.url || path;
+        const res = await getJson(`/api/album/info?path=${encodeURIComponent(lookup)}`);
         const data = res.data || {};
         const media = Array.isArray(data.media) ? data.media : [];
         return media;
@@ -2519,31 +3252,72 @@
       feedState.loadingMore = true;
       feedLoadingEl.hidden = false;
       try {
-        const network = document.getElementById('feedNetwork').value || 'erome';
+        const network = selectedFeedNetwork();
         const filter = document.getElementById('feedFilter').value;
         const itemsPerAlbum = Math.max(1, Number(document.getElementById('feedItemsPerAlbum').value || 6));
         let added = 0;
         let emptyBatch = false;
+        let eromeBatch = { albums: [], rawCount: 0, visibleCount: 0 };
+        let redditCount = 0;
+        let twitterCount = 0;
+        const providerMessages = [];
+        const safeFeedProvider = async (label, loader, fallback) => {
+          try {
+            return await loader();
+          } catch (error) {
+            providerMessages.push(`${label}: ${error.message || error}`);
+            return fallback;
+          }
+        };
         if (network === 'reddit') {
           const redditItems = await fetchRedditFeedBatch();
+          redditCount = redditItems.length;
           emptyBatch = redditItems.length === 0;
-          added = appendRedditFeedItems(redditItems, filter);
-        } else if (network === 'both') {
-          const [albums, redditItems] = await Promise.all([fetchEromeAlbumBatch(), fetchRedditFeedBatch()]);
-          emptyBatch = albums.length === 0 && redditItems.length === 0;
-          added = await appendMixedFeedItems(albums, redditItems, filter, itemsPerAlbum);
+          added = appendExternalFeedItems(redditItems, filter);
+        } else if (network === 'twitter') {
+          const twitterBatch = await fetchTwitterFeedBatch();
+          twitterCount = twitterBatch.items.length;
+          if (twitterBatch.unavailable && twitterBatch.message) providerMessages.push(twitterBatch.message);
+          emptyBatch = twitterBatch.items.length === 0;
+          added = appendExternalFeedItems(twitterBatch.items, filter);
+        } else if (network === 'all') {
+          const [nextEromeBatch, redditItems, twitterBatch] = await Promise.all([
+            fetchEromeAlbumBatch(),
+            safeFeedProvider('Reddit', fetchRedditFeedBatch, []),
+            safeFeedProvider('Twitter/X', fetchTwitterFeedBatch, { items: [], unavailable: true, message: 'Twitter/X unavailable.' }),
+          ]);
+          eromeBatch = nextEromeBatch;
+          redditCount = redditItems.length;
+          twitterCount = twitterBatch.items.length;
+          if (twitterBatch.unavailable && twitterBatch.message) providerMessages.push(twitterBatch.message);
+          emptyBatch = eromeBatch.rawCount === 0 && redditItems.length === 0 && twitterBatch.items.length === 0;
+          added = await appendMixedFeedItems(eromeBatch.albums, [...redditItems, ...twitterBatch.items], filter, itemsPerAlbum);
         } else {
-          const albums = await fetchEromeAlbumBatch();
-          emptyBatch = albums.length === 0;
-          added = await appendEromeFeedAlbums(albums, filter, itemsPerAlbum);
+          eromeBatch = await fetchEromeAlbumBatch();
+          emptyBatch = eromeBatch.rawCount === 0;
+          added = await appendEromeFeedAlbums(eromeBatch.albums, filter, itemsPerAlbum);
         }
-        if (emptyBatch || added === 0) {
+        if (providerMessages.length && added > 0) setStatus(providerMessages.join(' '), false);
+        if (emptyBatch) {
           feedState.finished = true;
           if (feedScrollEl.children.length === 0) {
-            feedEmptyEl.textContent = network === 'erome' ? 'No albums returned.' : 'No feed items returned.';
+            feedEmptyEl.textContent = feedEmptyMessage(network, eromeBatch, redditCount, twitterCount, added, filter, providerMessages);
             feedEmptyEl.style.display = '';
           }
           return;
+        }
+        if (added === 0) {
+          feedState.noProgressBatches += 1;
+          if (feedState.noProgressBatches >= 3) {
+            feedState.finished = true;
+            if (feedScrollEl.children.length === 0) {
+              feedEmptyEl.textContent = feedEmptyMessage(network, eromeBatch, redditCount, twitterCount, added, filter, providerMessages);
+              feedEmptyEl.style.display = '';
+            }
+            return;
+          }
+        } else {
+          feedState.noProgressBatches = 0;
         }
         if (feedScrollEl.children.length > 0) feedEmptyEl.style.display = 'none';
       } catch (err) {
@@ -2555,7 +3329,7 @@
       // Eager continuous autoload: keep pre-buffering ahead
       const eager = document.getElementById('feedEager').value === 'true';
       if (eager && !feedState.finished && feedScrollEl.children.length < 200) {
-        setTimeout(loadMoreFeed, 200);
+        setTimeout(loadMoreFeed, 120);
       }
     }
 
@@ -2564,10 +3338,13 @@
       feedScrollEl.innerHTML = '';
       feedState.page = 1;
       feedState.redditAfter = '';
+      feedState.twitterAfter = '';
       feedState.albumQueue = [];
       feedState.seenAlbums.clear();
       feedState.seenMedia.clear();
       feedState.autoSeenAlbums.clear();
+      feedState.pendingMediaDownloads.clear();
+      feedState.noProgressBatches = 0;
       feedState.loadingMore = false;
       feedState.finished = false;
       feedEmptyEl.textContent = 'Press Start Feed to begin.';
@@ -2617,6 +3394,8 @@
     document.getElementById('output').style.display = 'none';
 
     bindFormSettingsPersistence();
+    bindProfileInputSync();
+    syncProfileInputs('', false);
     renderHashtagChips();
     loadBackendState().then(loadAlbumHistory).then(loadRedditStatus).finally(() => run('health'));
   </script>

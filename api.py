@@ -25,11 +25,12 @@ class Api:
             "cache-control": "no-cache",
             "pragma": "no-cache",
         }
-        self.__media_pattern = re.compile(r"^https?://([sv]\d+\.erome\.com)(/[^\s]*)?(\?[^#\s]*)?$", re.I)
+        self.__media_pattern = re.compile(r"^https?://([sv]\d+\.(?:erome|xxxerome)\.com)(/[^\s]*)?(\?[^#\s]*)?$", re.I)
         self.__reddit_media_pattern = re.compile(
             r"^https?://((?:i|preview|external-preview|v)\.redd\.it)(/[^\s]*)?(\?[^#\s]*)?$",
             re.I,
         )
+        self.__site_host_pattern = re.compile(r"(^|\.)((?:xxx)?erome)\.com$", re.I)
         self.__version_list = {"all", "straight", "trans", "gay", "hentai"}
         self.__base_url = "https://www.erome.com"
         self.__timeout = 20
@@ -96,19 +97,30 @@ class Api:
         final_headers = headers if headers is not None else self.__headers
         return self.__session.get(url, headers=final_headers, timeout=self.__timeout)
 
+    def __is_supported_site_host(self, host: str) -> bool:
+        return bool(self.__site_host_pattern.search(str(host or "").lower()))
+
+    def __site_base_url_for_host(self, host: str) -> str:
+        hostname = str(host or "").lower().strip()
+        if not hostname or not self.__is_supported_site_host(hostname):
+            raise ValueError("Only erome.com and xxxerome.com URLs are supported.")
+        if hostname == "xxxerome.com" or hostname.endswith(".xxxerome.com"):
+            return "https://xxxerome.com"
+        return "https://www.erome.com"
+
     def __normalize_media_url(self, url: str) -> str:
         media_url = self.__normalize_text(url)
         if media_url.startswith("//"):
             media_url = f"https:{media_url}"
         if not self.__media_pattern.search(media_url) and not self.__reddit_media_pattern.search(media_url):
-            raise ValueError("'url' must match the erome or reddit media host pattern.")
+            raise ValueError("'url' must match the erome/xxxerome or reddit media host pattern.")
         return media_url
 
     def __media_request_headers(self, media_url: str, max_video_bytes: int = 0) -> Dict[str, str]:
         match = self.__media_pattern.search(media_url)
         reddit_match = self.__reddit_media_pattern.search(media_url)
         if not match and not reddit_match:
-            raise ValueError("'url' must match the erome or reddit media host pattern.")
+            raise ValueError("'url' must match the erome/xxxerome or reddit media host pattern.")
 
         if reddit_match:
             headers = {
@@ -125,13 +137,14 @@ class Api:
             return headers
 
         host = match.group(1).lower()
+        referer_base = self.__site_base_url_for_host(host)
         common_headers = {
             "host": host,
             "connection": "keep-alive",
             "user-agent": self.__headers["user-agent"],
             "accept-language": "en-US,en;q=0.9",
-            "referer": f"{self.__base_url}/",
-            "origin": self.__base_url,
+            "referer": f"{referer_base}/",
+            "origin": referer_base,
         }
         if host.startswith("s"):
             return {
@@ -201,13 +214,13 @@ class Api:
             if callable(close):
                 close()
 
-    def __absolute_url(self, url: str) -> str:
-        return urljoin(self.__base_url, url)
+    def __absolute_url(self, url: str, base_url: Optional[str] = None) -> str:
+        return urljoin(base_url or self.__base_url, url)
 
-    def __absolute_media_url(self, url: Optional[str]) -> Optional[str]:
+    def __absolute_media_url(self, url: Optional[str], base_url: Optional[str] = None) -> Optional[str]:
         if not url:
             return url
-        return self.__absolute_url(url.strip())
+        return self.__absolute_url(url.strip(), base_url=base_url)
 
     def __sanitize_filename(self, value: str, fallback: str = "Untitled") -> str:
         cleaned = re.sub(r'[<>:"/\\|?*]', "", value)
@@ -398,15 +411,44 @@ class Api:
         return filtered
 
     def __extract_profile_path(self, profile_or_url: str) -> str:
-        value = self.__normalize_text(profile_or_url).strip("/@")
+        value = self.__normalize_text(profile_or_url)
         parsed = urlparse(value)
         if parsed.scheme and parsed.netloc:
-            parts = parsed.path.strip("/").split("/")
-            value = parts[0] if parts and parts[0] else ""
+            self.__site_base_url_for_host(parsed.hostname or "")
+            value = parsed.path.strip("/")
+        value = value.strip("/@")
+
+        if value.startswith("a/"):
+            parts = value.split("/")
+            if len(parts) >= 4:
+                return "/".join(parts[:4])
+            raise ValueError("Expected a creator path like /a/<network>/<id>/<name>.")
+
+        if value.startswith("post/"):
+            raise ValueError("Expected a profile URL/path, not a post URL.")
+
+        # Keep legacy single-segment usernames for erome profile pages.
+        value = value.split("/")[0]
         reserved = {"", "a", "album", "explore", "search", "version", "user"}
         if value.lower() in reserved:
             raise ValueError("Expected a public profile username or URL.")
         return value
+
+    def __profile_base_url(self, profile_or_url: str) -> str:
+        value = self.__normalize_text(profile_or_url)
+        parsed = urlparse(value)
+        if parsed.scheme and parsed.netloc:
+            return self.__site_base_url_for_host(parsed.hostname or "")
+        return self.__base_url
+
+    def __resolve_site_base(self, site_base: str = "") -> str:
+        value = self.__normalize_text(site_base)
+        if not value:
+            return self.__base_url
+        parsed = urlparse(value)
+        if parsed.scheme and parsed.netloc:
+            return self.__site_base_url_for_host(parsed.hostname or "")
+        return self.__site_base_url_for_host(value)
 
     def __normalize_profile_content(self, content: str) -> str:
         value = self.__normalize_text(str(content or "albums")).lower()
@@ -498,7 +540,7 @@ class Api:
             reverse=reverse,
         )
 
-    def __extract_profile_albums(self, soup: BeautifulSoup) -> List[Dict[str, Any]]:
+    def __extract_profile_albums(self, soup: BeautifulSoup, base_url: Optional[str] = None) -> List[Dict[str, Any]]:
         root = soup.find("div", id="albums") or soup
         albums: List[Dict[str, Any]] = []
         seen_urls = set()
@@ -512,7 +554,7 @@ class Api:
             if not href:
                 continue
 
-            album_url = self.__absolute_url(href)
+            album_url = self.__absolute_url(href, base_url=base_url)
             if album_url in seen_urls:
                 continue
 
@@ -528,7 +570,7 @@ class Api:
                 {
                     "title": title,
                     "url": album_url,
-                    "thumb": self.__absolute_media_url(thumb_url) or "",
+                    "thumb": self.__absolute_media_url(thumb_url, base_url=base_url) or "",
                     "images": counts["images"],
                     "videos": counts["videos"],
                     "views": counts["views"],
@@ -539,9 +581,74 @@ class Api:
             )
             seen_urls.add(album_url)
 
+        for post in soup.select(".posts-list .post"):
+            link = post.select_one("a.view-post[href*='/post/']") or post.select_one("h3 a[href*='/post/']")
+            if not link:
+                continue
+            href = (link.get("href") or "").strip()
+            if not href:
+                continue
+
+            post_url = self.__absolute_url(href, base_url=base_url)
+            if post_url in seen_urls:
+                continue
+
+            title_node = post.select_one("h3 a") or link
+            title = self.__normalize_text((title_node.get("title") or "") if title_node else "")
+            if not title and title_node:
+                title = self.__normalize_text(title_node.get_text(" ", strip=True))
+            if not title:
+                title = post_url.rstrip("/").split("/")[-1]
+
+            thumb = post.select_one(".post-thumbs img") or post.select_one("img")
+            thumb_url = ""
+            if thumb:
+                thumb_url = (thumb.get("data-src") or thumb.get("src") or "").strip()
+
+            class_text = " ".join(str(item) for item in (post.get("class") or []))
+            text_blob = post.get_text(" ", strip=True)
+            hidden_marker = re.search(r"\b(hidden|unlisted|private)\b", f"{class_text} {text_blob}", re.I) is not None
+            duration_text = " ".join(
+                (node.get_text(" ", strip=True) or node.get("title") or node.get("data-duration") or "")
+                for node in post.select(".duration, [class*='duration'], time, [data-duration]")
+            )
+            if not duration_text:
+                duration_match = re.search(r"\b(?:\d{1,2}:)?\d{1,2}:\d{2}\b", text_blob)
+                duration_text = duration_match.group(0) if duration_match else ""
+            duration_seconds = self.__parse_duration_text(duration_text)
+
+            view_text = " ".join(
+                node.get_text(" ", strip=True)
+                for node in post.select(".views, [class*='views'], [class*='view']")
+            )
+            if not view_text:
+                view_match = re.search(r"(\d[\d,.]*\s*[KMB]?)\s+views?\b", text_blob, re.I)
+                view_text = view_match.group(0) if view_match else ""
+            views = self.__parse_abbrev_number(view_text)
+
+            media_type_text = " ".join(
+                node.get_text(" ", strip=True).lower()
+                for node in post.select(".badge, .tag, .label, .meta, [class*='meta']")
+            )
+            is_video = bool(duration_seconds) or re.search(r"\b(video|vid)\b", f"{class_text} {media_type_text}", re.I) is not None
+            albums.append(
+                {
+                    "title": title,
+                    "url": post_url,
+                    "thumb": self.__absolute_media_url(thumb_url, base_url=base_url) or "",
+                    "images": 0 if is_video else 1,
+                    "videos": 1 if is_video else 0,
+                    "views": views,
+                    "duration_seconds": duration_seconds,
+                    "is_hidden": hidden_marker,
+                    "visibility": "hidden" if hidden_marker else "public",
+                }
+            )
+            seen_urls.add(post_url)
+
         return albums
 
-    def __extract_ordered_media(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+    def __extract_ordered_media(self, soup: BeautifulSoup, base_url: Optional[str] = None) -> List[Dict[str, str]]:
         media: List[Dict[str, str]] = []
         seen = set()
 
@@ -549,12 +656,15 @@ class Api:
             media_item: Optional[Dict[str, str]] = None
             if tag.name == "div" and "img" in (tag.get("class") or []):
                 img_tag = tag.find("img")
-                media_url = self.__absolute_media_url((img_tag.get("data-src") or img_tag.get("src") or "") if img_tag else "")
+                media_url = self.__absolute_media_url(
+                    (img_tag.get("data-src") or img_tag.get("src") or "") if img_tag else "",
+                    base_url=base_url,
+                )
                 if media_url:
                     media_item = {"type": "photo", "url": media_url}
             elif tag.name == "img" and not tag.find_parent("div", class_="img"):
-                media_url = self.__absolute_media_url(tag.get("data-src") or tag.get("src") or "")
-                if media_url and ".erome.com" in urlparse(media_url).netloc:
+                media_url = self.__absolute_media_url(tag.get("data-src") or tag.get("src") or "", base_url=base_url)
+                if media_url and self.__is_supported_site_host(urlparse(media_url).hostname or ""):
                     media_item = {"type": "photo", "url": media_url}
             elif tag.name == "video":
                 source = tag.find("source")
@@ -564,7 +674,7 @@ class Api:
                 elif tag.get("src"):
                     video_url = tag["src"].strip()
 
-                video_url = self.__absolute_media_url(video_url)
+                video_url = self.__absolute_media_url(video_url, base_url=base_url)
                 if video_url:
                     poster = tag.get("poster")
                     if not poster:
@@ -573,7 +683,7 @@ class Api:
                             match = re.search(r'"poster"\s*:\s*"([^"]+)"', data_setup)
                             poster = match.group(1) if match else None
                     media_item = {"type": "video", "url": video_url}
-                    poster_url = self.__absolute_media_url(poster)
+                    poster_url = self.__absolute_media_url(poster, base_url=base_url)
                     if poster_url:
                         media_item["thumb_url"] = poster_url
 
@@ -612,21 +722,43 @@ class Api:
         value = self.__normalize_text(path_or_url)
         parsed = urlparse(value)
         if parsed.scheme and parsed.netloc:
-            slug = parsed.path.strip("/").split("/")
-            if len(slug) >= 2 and slug[0] == "a":
-                return slug[1]
-            raise ValueError("Invalid album URL path. Expected /a/<slug>.")
-        return value.strip("/").split("/")[-1]
+            self.__site_base_url_for_host(parsed.hostname or "")
+            url_path = parsed.path.strip("/")
+            parts = url_path.split("/")
+            if len(parts) >= 2 and parts[0] == "a":
+                return parts[1]
+            if parts and parts[0] == "post":
+                return url_path
+            raise ValueError("Invalid media URL path. Expected /a/<slug> or /post/<...>.")
 
-    def __get_album_data(self, page: int, keyword: str = "", new: Optional[bool] = None) -> List[Dict[str, Any]]:
+        raw_path = value.strip("/")
+        if raw_path.startswith("post/"):
+            return raw_path
+        return raw_path.split("/")[-1]
+
+    def __album_base_url(self, path_or_url: str) -> str:
+        value = self.__normalize_text(path_or_url)
+        parsed = urlparse(value)
+        if parsed.scheme and parsed.netloc:
+            return self.__site_base_url_for_host(parsed.hostname or "")
+        return self.__base_url
+
+    def __get_album_data(
+        self,
+        page: int,
+        keyword: str = "",
+        new: Optional[bool] = None,
+        site_base: str = "",
+    ) -> List[Dict[str, Any]]:
+        base_url = self.__resolve_site_base(site_base)
         if not keyword:
             if new:
-                url = f"{self.__base_url}/explore/new?page={page}"
+                url = f"{base_url}/explore/new?page={page}"
             else:
-                url = f"{self.__base_url}/explore?page={page}"
+                url = f"{base_url}/explore?page={page}"
         else:
             query = urlencode({"q": keyword, "page": page})
-            url = f"{self.__base_url}/search?{query}"
+            url = f"{base_url}/search?{query}"
 
         response = self.__safe_get(url)
         if response.status_code < 200 or response.status_code > 207:
@@ -652,7 +784,7 @@ class Api:
             if not href:
                 continue
 
-            full_url = self.__absolute_url(href)
+            full_url = self.__absolute_url(href, base_url=base_url)
             if full_url in seen_urls:
                 continue
 
@@ -672,7 +804,7 @@ class Api:
             content.append(
                 {
                     "title": title_text,
-                    "thumb": self.__absolute_media_url(thumb_url) or "",
+                    "thumb": self.__absolute_media_url(thumb_url, base_url=base_url) or "",
                     "url": full_url,
                     "tags": tags,
                     "images": counts["images"],
@@ -691,7 +823,7 @@ class Api:
                 href = (link.get("href") or "").strip()
                 if not href:
                     continue
-                full_url = self.__absolute_url(href)
+                full_url = self.__absolute_url(href, base_url=base_url)
                 if full_url in seen_urls:
                     continue
                 title_text = self.__normalize_text(link.get_text(" ", strip=True)) or full_url.rstrip("/").split("/")[-1]
@@ -749,7 +881,9 @@ class Api:
             raise TypeError("'path' should be a string.")
 
         slug = self.__extract_album_path(path)
-        url = f"{self.__base_url}/a/{slug}"
+        base_url = self.__album_base_url(path)
+        is_post_page = slug.startswith("post/")
+        url = f"{base_url}/{slug}" if is_post_page else f"{base_url}/a/{slug}"
         response = self.__safe_get(url)
         if response.status_code < 200 or response.status_code > 207:
             return {"slug": slug, "url": url, "title": "Untitled", "username": "Unknown", "media": []}
@@ -760,7 +894,7 @@ class Api:
             "url": url,
             "title": self.__extract_album_title(soup),
             "username": self.__extract_username(soup),
-            "media": self.__extract_ordered_media(soup),
+            "media": self.__extract_ordered_media(soup, base_url=base_url),
         }
 
     def get_content(self, url: str, max_video_bytes: int = 0) -> bytes:
@@ -789,6 +923,7 @@ class Api:
         sort_dir: str = "desc",
         hidden_only: bool = False,
         match_mode: str = "site",
+        site_base: str = "",
     ) -> List[Dict[str, Any]]:
         if not isinstance(keyword, str):
             raise TypeError("'keyword' should be a string.")
@@ -809,7 +944,7 @@ class Api:
         site_keyword = self.__search_keyword_for_site(keyword) if hashtag_terms else keyword
         content: List[Dict[str, Any]] = []
         while page <= limit:
-            content.extend(self.__get_album_data(page, keyword=site_keyword))
+            content.extend(self.__get_album_data(page, keyword=site_keyword, site_base=site_base))
             page += 1
 
         if normalized_match_mode == "site" and hashtag_terms:
@@ -832,6 +967,7 @@ class Api:
         sort_by: str = "default",
         sort_dir: str = "desc",
         hidden_only: bool = False,
+        site_base: str = "",
     ) -> List[Dict[str, Any]]:
         if not isinstance(page, int) or page <= 0:
             raise ValueError("'page' should be an integer greater than or equal to 1.")
@@ -846,7 +982,7 @@ class Api:
 
         content: List[Dict[str, Any]] = []
         while page <= limit:
-            content.extend(self.__get_album_data(page, new=new))
+            content.extend(self.__get_album_data(page, new=new, site_base=site_base))
             page += 1
         return self.__sort_and_filter_albums(content, sort_by=sort_by, sort_dir=sort_dir, hidden_only=hidden_only)
 
@@ -859,6 +995,7 @@ class Api:
         sort_dir: str = "desc",
         hidden_only: bool = False,
         content: str = "albums",
+        site_base: str = "",
     ) -> Dict[str, Any]:
         if not isinstance(profile, str):
             raise TypeError("'profile' should be a string.")
@@ -873,7 +1010,8 @@ class Api:
 
         profile_content = self.__normalize_profile_content(content)
         profile_path = self.__extract_profile_path(profile)
-        profile_url = f"{self.__base_url}/{profile_path}"
+        profile_base_url = self.__resolve_site_base(site_base) if self.__normalize_text(site_base) else self.__profile_base_url(profile)
+        profile_url = f"{profile_base_url}/{profile_path}"
         username = profile_path
         avatar = ""
         bio = ""
@@ -894,7 +1032,9 @@ class Api:
 
             soup = BeautifulSoup(response.text, "html.parser")
             if page == 1:
-                name_tag = soup.select_one("#user_name, .user-name, .username, .profile-name, [itemprop='name']")
+                name_tag = soup.select_one(
+                    "#user_name, .user-name, .username, .profile-name, .model-info h1, article.model-info h1, h1, [itemprop='name']"
+                )
                 if name_tag and name_tag.get_text(" ", strip=True):
                     username = self.__normalize_text(name_tag.get_text(" ", strip=True))
                 avatar_tag = soup.select_one(".profile img, .user-profile img, .avatar img, img.avatar, img[src*='avatar']")
@@ -907,7 +1047,7 @@ class Api:
                     bio = self.__normalize_text(bio_tag.get_text(" ", strip=True))
 
             added_this_page = 0
-            for album in self.__extract_profile_albums(soup):
+            for album in self.__extract_profile_albums(soup, base_url=profile_base_url):
                 if album["url"] in seen_urls:
                     continue
                 albums.append(album)
@@ -941,6 +1081,7 @@ class Api:
         sort_by: str = "default",
         sort_dir: str = "desc",
         hidden_only: bool = False,
+        site_base: str = "",
     ) -> Dict[str, Any]:
         return self.get_profile_info(
             profile=profile,
@@ -950,6 +1091,7 @@ class Api:
             sort_dir=sort_dir,
             hidden_only=hidden_only,
             content="reposts",
+            site_base=site_base,
         )
 
     def get_album_metadata(self, path: str) -> Dict[str, Any]:
@@ -957,7 +1099,8 @@ class Api:
             raise TypeError("'path' should be a string.")
 
         slug = self.__extract_album_path(path)
-        url = f"{self.__base_url}/a/{slug}"
+        base_url = self.__album_base_url(path)
+        url = f"{base_url}/a/{slug}"
         response = self.__safe_get(url)
         if response.status_code < 200 or response.status_code > 207:
             return {
@@ -974,7 +1117,7 @@ class Api:
             }
 
         soup = BeautifulSoup(response.text, "html.parser")
-        media = self.__extract_ordered_media(soup)
+        media = self.__extract_ordered_media(soup, base_url=base_url)
         like_candidates = [
             soup.select_one("#like_count"),
             soup.select_one(".album-likes, .likes, [class*='like']"),

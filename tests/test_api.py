@@ -250,6 +250,16 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(content, b"image-bytes")
         self.assertEqual(fake_session.requests[0]["url"], "https://s71.erome.com/album/thumb.jpg")
 
+    def test_get_content_accepts_xxxerome_media_hosts(self):
+        api = Api()
+        fake_session = FakeSession([FakeResponse(content=b"xxx-image")])
+        api._Api__session = fake_session
+
+        content = api.get_content("https://s71.xxxerome.com/album/thumb.jpg")
+
+        self.assertEqual(content, b"xxx-image")
+        self.assertEqual(fake_session.requests[0]["url"], "https://s71.xxxerome.com/album/thumb.jpg")
+
     def test_album_info_preserves_order_and_removes_duplicate_media(self):
         api = Api()
         html = """
@@ -536,6 +546,159 @@ class ApiTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_album_info_keeps_xxxerome_domain_from_input_url(self):
+        api = Api()
+        html = """
+        <meta property="og:title" content="Xxx Album">
+        <a id="user_name">Uploader</a>
+        <div class="img"><img data-src="/media/photo.jpg"></div>
+        """
+        api._Api__session = FakeSession([FakeResponse(html)])
+
+        info = api.get_album_info("https://www.xxxerome.com/a/ABC123")
+
+        self.assertEqual(info["slug"], "ABC123")
+        self.assertEqual(info["url"], "https://xxxerome.com/a/ABC123")
+        self.assertEqual(info["media"], [{"type": "photo", "url": "https://xxxerome.com/media/photo.jpg"}])
+
+    def test_profile_info_keeps_xxxerome_domain_from_profile_url(self):
+        api = Api()
+        html = """
+        <h1 class="profile-name">Creator Name</h1>
+        <div id="albums">
+            <div class="album">
+                <a class="album-link" href="/a/ABC123"><span class="album-title">First Album</span></a>
+            </div>
+        </div>
+        """
+        fake_session = FakeSession([FakeResponse(html)])
+        api._Api__session = fake_session
+
+        profile = api.get_profile_info("https://www.xxxerome.com/CreatorName")
+
+        self.assertEqual(profile["url"], "https://xxxerome.com/CreatorName")
+        self.assertEqual(profile["albums"][0]["url"], "https://xxxerome.com/a/ABC123")
+        self.assertEqual(fake_session.requests[0]["url"], "https://xxxerome.com/CreatorName")
+
+    def test_profile_info_normalizes_xxxerome_www_host_to_apex(self):
+        api = Api()
+        html = """
+        <h1 class="profile-name">Creator Name</h1>
+        <div id="albums">
+            <div class="album">
+                <a class="album-link" href="/a/ABC123"><span class="album-title">First Album</span></a>
+            </div>
+        </div>
+        """
+        fake_session = FakeSession([FakeResponse(html)])
+        api._Api__session = fake_session
+
+        profile = api.get_profile_info("https://www.xxxerome.com/CreatorName")
+
+        self.assertEqual(profile["url"], "https://xxxerome.com/CreatorName")
+        self.assertEqual(profile["albums"][0]["url"], "https://xxxerome.com/a/ABC123")
+        self.assertEqual(fake_session.requests[0]["url"], "https://xxxerome.com/CreatorName")
+
+    def test_profile_info_parses_xxxerome_creator_post_listing(self):
+        api = Api()
+        html = """
+        <main class="content">
+            <article class="text-block model-info">
+                <figure><img src="https://xxxerome.com/istorage/324584.jpg" alt="vividlyvixen"></figure>
+                <h1>vividlyvixen</h1>
+            </article>
+            <section class="model-posts">
+                <div class="posts-list">
+                    <div class="post">
+                        <h3><a href="/post/68990562/324584/onlyfans/vividlyvixen" title="No need to bring snacks">No need to bring snacks</a></h3>
+                        <div class="post-thumbs">
+                            <figure><a href="/post/68990562/324584/onlyfans/vividlyvixen"><img src="https://img1.xxxerome.com/storage/5/na/zh/sample.jpg"></a></figure>
+                        </div>
+                        <a class="view-post" href="/post/68990562/324584/onlyfans/vividlyvixen">View Post</a>
+                    </div>
+                </div>
+            </section>
+        </main>
+        """
+        fake_session = FakeSession([FakeResponse(html)])
+        api._Api__session = fake_session
+
+        profile = api.get_profile_info("https://xxxerome.com/a/onlyfans/324584/vividlyvixenvip")
+
+        self.assertEqual(profile["username"], "vividlyvixen")
+        self.assertEqual(profile["url"], "https://xxxerome.com/a/onlyfans/324584/vividlyvixenvip")
+        self.assertEqual(profile["totals"], {"albums": 1, "images": 1, "videos": 0})
+        self.assertEqual(profile["albums"][0]["url"], "https://xxxerome.com/post/68990562/324584/onlyfans/vividlyvixen")
+        self.assertEqual(profile["albums"][0]["thumb"], "https://img1.xxxerome.com/storage/5/na/zh/sample.jpg")
+        self.assertEqual(profile["albums"][0]["images"], 1)
+        self.assertEqual(profile["albums"][0]["videos"], 0)
+
+    def test_album_info_supports_xxxerome_post_urls(self):
+        api = Api()
+        html = """
+        <title>No need to bring snacks</title>
+        <article class="text-block model-info"><h1>vividlyvixen</h1></article>
+        <video poster="https://img1.xxxerome.com/storage/poster.jpg">
+            <source src="https://v71.xxxerome.com/storage/video.mp4">
+        </video>
+        <img src="https://img1.xxxerome.com/storage/photo.jpg">
+        """
+        api._Api__session = FakeSession([FakeResponse(html)])
+
+        info = api.get_album_info("https://xxxerome.com/post/68990562/324584/onlyfans/vividlyvixen")
+
+        self.assertEqual(info["slug"], "post/68990562/324584/onlyfans/vividlyvixen")
+        self.assertEqual(info["url"], "https://xxxerome.com/post/68990562/324584/onlyfans/vividlyvixen")
+        self.assertEqual(
+            info["media"],
+            [
+                {
+                    "type": "video",
+                    "url": "https://v71.xxxerome.com/storage/video.mp4",
+                    "thumb_url": "https://img1.xxxerome.com/storage/poster.jpg",
+                },
+                {"type": "photo", "url": "https://img1.xxxerome.com/storage/photo.jpg"},
+            ],
+        )
+
+    def test_album_content_maps_rich_xxxerome_post_media(self):
+        api = Api()
+        html = """
+        <title>Rich Post</title>
+        <article class="text-block model-info"><h1>vividlyvixen</h1></article>
+        <div class="img"><img data-src="https://img5.xxxerome.com/storage/photo-1.jpg"></div>
+        <img src="https://img5.xxxerome.com/storage/photo-2.jpg">
+        <video poster="https://img5.xxxerome.com/storage/poster-1.jpg">
+            <source src="https://v71.xxxerome.com/storage/video-1.mp4">
+        </video>
+        <video src="https://v71.xxxerome.com/storage/video-2.mp4"></video>
+        """
+        api._Api__session = FakeSession([FakeResponse(html)])
+
+        content = api.get_album_content("https://xxxerome.com/post/123/324584/onlyfans/vividlyvixen")
+
+        self.assertEqual(
+            content["photos"],
+            [
+                "https://img5.xxxerome.com/storage/photo-1.jpg",
+                "https://img5.xxxerome.com/storage/photo-2.jpg",
+            ],
+        )
+        self.assertEqual(
+            content["videos"],
+            [
+                {
+                    "video_url": "https://v71.xxxerome.com/storage/video-1.mp4",
+                    "thumb_url": "https://img5.xxxerome.com/storage/poster-1.jpg",
+                },
+                {
+                    "video_url": "https://v71.xxxerome.com/storage/video-2.mp4",
+                    "thumb_url": None,
+                },
+            ],
+        )
+
     def test_profile_info_can_filter_public_hidden_albums(self):
         api = Api()
         html = """

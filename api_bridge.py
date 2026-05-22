@@ -61,6 +61,7 @@ def main() -> None:
                 str(payload.get("sort_dir", "desc")),
                 bool(payload.get("hidden_only", False)),
                 str(payload.get("match_mode", "site")),
+                str(payload.get("site_base", "")),
             )
             write_result({"ok": True, "data": result})
 
@@ -72,6 +73,7 @@ def main() -> None:
                 str(payload.get("sort_by", "default")),
                 str(payload.get("sort_dir", "desc")),
                 bool(payload.get("hidden_only", False)),
+                str(payload.get("site_base", "")),
             )
             write_result({"ok": True, "data": result})
 
@@ -96,6 +98,7 @@ def main() -> None:
                 str(payload.get("sort_dir", "desc")),
                 bool(payload.get("hidden_only", False)),
                 str(payload.get("content", "albums")),
+                str(payload.get("site_base", "")),
             )
             write_result({"ok": True, "data": result})
 
@@ -107,6 +110,7 @@ def main() -> None:
                 str(payload.get("sort_by", "default")),
                 str(payload.get("sort_dir", "desc")),
                 bool(payload.get("hidden_only", False)),
+                str(payload.get("site_base", "")),
             )
             write_result({"ok": True, "data": result})
 

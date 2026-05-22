@@ -131,6 +131,17 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn('/api/albums/mark', source)
         self.assertIn('/api/albums/history', source)
 
+    def test_root_feed_empty_state_explains_search_and_filter_misses(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn('function feedEmptyMessage', source)
+        self.assertIn('rawCount', source)
+        self.assertIn('visibleCount', source)
+        self.assertIn('No albums matched the current search:', source)
+        self.assertIn('Albums matched, but current hide/history filters removed them all.', source)
+        self.assertIn('Albums loaded, but no media items could be displayed.', source)
+        self.assertIn('Feed items loaded, but none matched the current filters.', source)
+
     def test_server_persists_album_history_state(self):
         server = Path("server.js").read_text(encoding="utf-8")
 
@@ -143,6 +154,13 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn('path === "/api/albums/history"', server)
         self.assertIn('path === "/api/albums/mark"', server)
         self.assertIn('path === "/api/albums/clear-history"', server)
+
+    def test_server_proxy_allows_xxxerome_hosts(self):
+        server = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn('function isAllowedProxyHost', server)
+        self.assertIn('xxxerome.com', server)
+        self.assertIn('Only erome.com and xxxerome.com hosts are proxied.', server)
 
     def test_server_has_reddit_oauth_routes(self):
         server = Path("server.js").read_text(encoding="utf-8")
@@ -187,7 +205,7 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn('id="feedNetwork"', source)
         self.assertIn('Erome only', source)
         self.assertIn('Reddit only', source)
-        self.assertIn('Both', source)
+        self.assertIn('All', source)
         self.assertIn('id="redditClientId"', source)
         self.assertIn('id="redditConnect"', source)
         self.assertIn('id="redditDisconnect"', source)
@@ -195,6 +213,21 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn('function appendRedditFeedItems', source)
         self.assertIn('function appendMixedFeedItems', source)
         self.assertIn('/api/reddit/feed', source)
+
+    def test_root_feed_has_twitter_and_all_network_modes(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+        server = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn('value="twitter"', source)
+        self.assertIn('Twitter/X only', source)
+        self.assertIn('value="all"', source)
+        self.assertIn('>All<', source)
+        self.assertIn("function fetchTwitterFeedBatch", source)
+        self.assertIn("function appendExternalFeedItems", source)
+        self.assertIn("network === 'all'", source)
+        self.assertIn("fetchTwitterFeedBatch()", source)
+        self.assertIn('path === "/api/twitter/feed"', server)
+        self.assertIn('function normalizeTwitterPost', server)
 
     def test_root_feed_uses_tags_for_erome_and_reddit_search(self):
         source = Path("ui.html").read_text(encoding="utf-8")
@@ -219,6 +252,91 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn("download.onclick = () => downloadMediaToDir(media, album)", source)
         self.assertIn("actions.appendChild(download)", source)
 
+    def test_root_feed_fetch_album_media_preserves_full_album_url(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("const lookup = album.url || path;", source)
+        self.assertIn("/api/album/info?path=${encodeURIComponent(lookup)}", source)
+
+    def test_root_feed_parses_post_urls_to_album_paths(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("if (parts[0] === 'post' && parts.length >= 2) return parts.join('/');", source)
+        self.assertIn("const postMatch = String(url).match(/\\/?(post\\/[^?#]+)/);", source)
+
+    def test_root_feed_download_groups_items_without_css_selector_path_injection(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("Array.from(document.querySelectorAll('.feed-item'))", source)
+        self.assertIn(".filter((el) => (el.dataset.albumPath || '') === path);", source)
+
+    def test_root_download_retries_with_all_media_when_filter_returns_empty(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("No media matched current type. Retrying with photos + videos...", source)
+        self.assertIn("body.include_photos !== body.include_videos", source)
+        self.assertIn("include_photos: true", source)
+        self.assertIn("include_videos: true", source)
+
+    def test_root_download_empty_hint_mentions_media_filter_not_blocking(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("if (action === 'download' && emptyArrayData)", source)
+        self.assertIn("No downloadable items matched the current Photos/Videos filter", source)
+
+    def test_root_feed_treats_twitter_as_external_media(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("return (source === 'reddit' || source === 'twitter') ? mediaUrl : proxyUrl(mediaUrl);", source)
+        self.assertIn("const isExternalFeedSource = source === 'reddit' || source === 'twitter';", source)
+        self.assertIn("open.title = 'Open Twitter/X source'", source)
+        self.assertIn("source === 'twitter'", source)
+        self.assertIn("'Twitter/X'", source)
+
+    def test_root_feed_supports_xxxerome_site_selection(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+        bridge = Path("api_bridge.py").read_text(encoding="utf-8")
+        server = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="feedSite"', source)
+        self.assertIn('https://xxxerome.com', source)
+        self.assertIn('value="xxxerome"', source)
+        self.assertIn('XXXErome only', source)
+        self.assertIn("if (network === 'xxxerome') return 'https://xxxerome.com';", source)
+        self.assertIn('site: siteOverride || selectedFeedSite(selectedFeedNetwork())', source)
+        self.assertIn('site_base', bridge)
+        self.assertIn('site_base', server)
+
+    def test_search_and_profile_have_explicit_xxxerome_site_controls(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="searchSite"', source)
+        self.assertIn('id="exploreSite"', source)
+        self.assertIn('id="profileSite"', source)
+        self.assertIn('selectedSearchSite()', source)
+        self.assertIn('selectedExploreSite()', source)
+        self.assertIn('selectedProfileSite()', source)
+        self.assertIn("albumQueryParams(hidden, selectedSearchSite())", source)
+        self.assertIn("albumQueryParams(false, selectedExploreSite())", source)
+
+    def test_profile_action_does_not_override_explicit_profile_url_site(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn('function looksLikeAbsoluteProfileUrl', source)
+        self.assertIn('const inferredSite = inferPreferredSiteFromProfileValue(rawProfile);', source)
+        self.assertIn("const siteOverride = looksLikeAbsoluteProfileUrl(rawProfile) ? '' : (inferredSite || selectedProfileSite());", source)
+        self.assertIn('placeholder="username or https://xxxerome.com/a/onlyfans/123/name"', source)
+
+    def test_root_feed_prevents_duplicate_media_download_clicks(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+        server = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn('pendingMediaDownloads: new Set()', source)
+        self.assertIn('This media is already downloading.', source)
+        self.assertIn("feedState.pendingMediaDownloads.add(mediaKey)", source)
+        self.assertIn("feedState.pendingMediaDownloads.delete(mediaKey)", source)
+        self.assertIn('normalizeMediaUrl(job.media_url || "") === mediaUrl', server)
+
     def test_root_feed_has_video_mute_toggle(self):
         source = Path("ui.html").read_text(encoding="utf-8")
 
@@ -241,6 +359,94 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn('function syncFeedMutePreferenceFromVideo', source)
         self.assertIn("video.addEventListener('volumechange', syncFeedMutePreferenceFromVideo)", source)
         self.assertIn("if (other !== video && other.muted !== muted) other.muted = muted", source)
+
+    def test_preview_album_auto_advances_to_next_post_when_media_missing(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn('function nextAlbumForPreviewFallback', source)
+        self.assertIn('let currentAlbum = album', source)
+        self.assertIn('const visitedAlbumUrls = new Set()', source)
+        self.assertIn("const matchingMedia = mediaItems.filter((item) => item && item.url && mediaTypeAllowed(item.type));", source)
+        self.assertIn("if (!matchingMedia.length)", source)
+        self.assertIn('const nextAlbum = nextAlbumForPreviewFallback(currentAlbum)', source)
+        self.assertIn("No ${selectedType} in this post. Loading next post...", source)
+        self.assertIn('continue;', source)
+
+    def test_root_ui_keeps_selected_media_type_without_forced_fallback(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertNotIn("No media matched the selected type. Switched to Photos + Videos.", source)
+        self.assertNotIn("No profile media matched the selected type. Switched to Photos + Videos.", source)
+
+    def test_feed_profile_fetch_retries_with_profile_tab_value_when_feed_field_empty_results(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("const feedRawProfile = (document.getElementById('feedProfileName').value || '').trim();", source)
+        self.assertIn("const profileTabRawProfile = (document.getElementById('profileName').value || '').trim();", source)
+        self.assertIn("if (!rawAlbums.length && secondaryProfile)", source)
+        self.assertIn("Retrying with Profile tab value", source)
+
+    def test_feed_and_profile_inputs_stay_in_sync(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("function syncProfileInputs(sourceId = '', persist = true)", source)
+        self.assertIn("function bindProfileInputSync()", source)
+        self.assertIn("feedInput.addEventListener('input', () => syncProfileInputs('feedProfileName'))", source)
+        self.assertIn("profileInput.addEventListener('input', () => syncProfileInputs('profileName'))", source)
+        self.assertIn("bindProfileInputSync();", source)
+
+    def test_root_feed_uses_youtube_style_video_player(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn('function createVideoPlayerClone', source)
+        self.assertIn('className = \'yt-clone-player paused show-controls\'', source)
+        self.assertIn('yt-clone-timeline', source)
+        self.assertIn('yt-clone-volume-slider', source)
+        self.assertIn('yt-clone-time-display', source)
+        self.assertIn('yt-clone-fullscreen', source)
+        self.assertIn('createVideoPlayerClone(album, media, source, item)', source)
+        self.assertIn('function createVideoPlayerPreview', source)
+        self.assertIn("previewEl.appendChild(createVideoPlayerPreview(objectUrl, 'Preview'))", source)
+        self.assertNotIn('video.controls = true', source)
+        self.assertNotIn('<video src="${objectUrl}" controls></video>', source)
+
+    def test_twitter_feed_explains_public_app_shell_limitation(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+        server = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn('id="twitterHelp"', source)
+        self.assertIn('public X pages may return only the app shell', source)
+        self.assertIn('without media URLs', server)
+        self.assertIn('official API or logged-in session support', server)
+
+    def test_twitter_feed_supports_official_x_api_bearer_token(self):
+        server = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn('const TWITTER_BEARER_TOKEN = process.env.X_BEARER_TOKEN || process.env.TWITTER_BEARER_TOKEN || "";', server)
+        self.assertIn('const TWITTER_API_BASE = (process.env.X_API_BASE || "https://api.twitter.com/2").replace(/\\/+$/, "");', server)
+        self.assertIn('function twitterApiSearchQuery', server)
+        self.assertIn('async function fetchTwitterApiFeed', server)
+        self.assertIn('Authorization: `Bearer ${TWITTER_BEARER_TOKEN}`', server)
+        self.assertIn('/tweets/search/recent?', server)
+        self.assertIn('/users/by/username/', server)
+        self.assertIn('normalizeTwitterApiFeed', server)
+        self.assertIn('authenticated: true', server)
+
+    def test_root_twitter_feed_uses_api_pagination_token(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn("twitterAfter: ''", source)
+        self.assertIn("if (feedState.twitterAfter) params.set('after', feedState.twitterAfter);", source)
+        self.assertIn("feedState.twitterAfter = data.after || '';", source)
+        self.assertIn("feedState.twitterAfter = '';", source)
+
+    def test_readme_documents_twitter_x_api_setup(self):
+        readme = Path("README.md").read_text(encoding="utf-8")
+
+        self.assertIn('## Twitter/X Feed Setup', readme)
+        self.assertIn('X_BEARER_TOKEN', readme)
+        self.assertIn('TWITTER_BEARER_TOKEN', readme)
+        self.assertIn('https://developer.x.com', readme)
 
     def test_root_ui_stabilizes_download_status_layout(self):
         source = Path("ui.html").read_text(encoding="utf-8")
