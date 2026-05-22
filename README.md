@@ -117,6 +117,35 @@ $env:PORT="3006"
 node server.js
 ```
 
+## How Everything Fits Together
+
+EroTok runs as a local app with a small set of cooperating pieces:
+
+1. Your browser opens the UI from `http://127.0.0.1:3000/`.
+2. `server.js` serves the UI, receives browser actions, stores local state, runs download jobs, proxies safe media requests, and exposes JSON endpoints.
+3. For Erome and XXXErome page work, `server.js` calls `api_bridge.py` as a short-lived Python process.
+4. `api_bridge.py` reads JSON from stdin, calls the correct `Api` method in `api.py`, then prints JSON back to Node.
+5. `api.py` requests public pages, parses album/profile/search/media data, and downloads media when asked.
+6. `state.json` stores local settings, form values, download history, album history, and Reddit OAuth metadata.
+7. Optional subsystems add more surfaces: Reddit and Twitter/X feeds in `server.js`, watcher APIs under `erome-watcher/`, userscripts under `userscript/`, and the generic FastAPI scaffold under `media-gallery-api-structure/`.
+
+Nothing has to be deployed to a public server. The normal workflow is local browser -> local Node bridge -> local Python API -> public pages you are allowed to access.
+
+## First Run Checklist
+
+Use this checklist when setting up a fresh copy:
+
+1. Clone or open the repository.
+2. Install Python dependencies with `python -m pip install -r requirements.txt`.
+3. Start the local bridge with `node server.js`.
+4. Open `http://127.0.0.1:3000/`.
+5. Click `Health` or open `http://127.0.0.1:3000/health` to confirm the Node bridge is alive.
+6. Click `Run Connectivity Diagnostics` to check public Erome reachability from your machine.
+7. Set `Download Folder` if you want media saved somewhere other than `Downloads/`.
+8. Choose `All`, `Photo`, or `Video` in the result tools to control previews and downloads.
+9. Start with `Explore`, `Search`, or a known public profile before connecting optional Reddit or Twitter/X feeds.
+10. Keep `state.json` private; it is ignored by git because it can contain local paths and OAuth metadata.
+
 ## Main Control Panel
 
 The root page served from `ui.html` is the primary app. It exposes tabs for feed browsing, search, explore, profile lookup, version switching, album lookup, media preview, downloads, and diagnostics.
@@ -132,6 +161,18 @@ Common controls:
 - Watcher shortcut at `/watcher`
 
 The app stores local UI settings, download history, album history, and Reddit connection metadata in `state.json`. That file is intentionally ignored by git because it can contain local paths and tokens.
+
+### Main Control Panel Workflow
+
+1. Start `node server.js` and open the root URL.
+2. Use the global toolbar to set layout, hide filters, history filters, and hashtag chips.
+3. Use the left tabs to choose a feature: Feed, Search, Explore, Profile, Version, Album, Media, Download, or Diagnostics.
+4. Run an action. The raw JSON response appears in the output panel so you can inspect exactly what the backend returned.
+5. When results include albums or media, the preview area renders cards and playable media using the same result data.
+6. Use result tools to change download folder, media type, sort order, hidden-only behavior, preview, profile feed, or download actions.
+7. Use `Copy JSON` when you want to reuse a response in tests, scripts, notes, or another tool.
+
+The UI is intentionally both visual and inspectable. You can browse with the cards, but the underlying JSON stays visible so automation and debugging are easier.
 
 ## Feed Modes
 
@@ -164,6 +205,40 @@ Useful feed options:
 
 Feed cards support open-source, seen, skip, save, download, and media preview actions. Videos use the custom YouTube-style local player with timeline, volume, speed, picture-in-picture, and fullscreen controls.
 
+### Feed Step-By-Step
+
+1. Choose `Feed` from the tab row.
+2. Pick a network: Erome, XXXErome, Reddit, Twitter/X, or All.
+3. If the network includes Erome-style sources, pick the source: Explore, Explore New, Search keyword, Profile uploads, or Profile reposts.
+4. Enter search text, hashtags, or a profile username/URL depending on the chosen source.
+5. Choose a keyword match mode when searching.
+6. Pick `All`, `Videos only`, or `Photos only` in `Show`.
+7. Set batch size and max items per album.
+8. Enable or disable auto-load ahead depending on whether you want continuous scrolling.
+9. Click `Start Feed`.
+10. Scroll through the rendered feed cards.
+11. Use card actions to open the source, preview media, save, skip, mark seen, or download.
+12. Click `Reset` when changing major source settings so pagination and provider cursors start cleanly.
+
+### How Feed Loading Works
+
+For Erome-style feeds, the browser asks `server.js` for `/api/explore`, `/api/search`, `/api/profile`, or `/api/profile/reposts`. Node forwards those calls to `api_bridge.py`, which calls `api.py` and returns normalized album objects.
+
+For Reddit feeds, Node talks to Reddit OAuth endpoints and normalizes media posts into the same feed-card shape used by Erome results. For Twitter/X feeds, Node either uses X API v2 when a bearer token is configured, or tries public X pages and reports a graceful unavailable response when X only returns its JavaScript shell.
+
+The `All` feed mode requests more than one provider and merges what succeeds. A failure from Reddit or Twitter/X does not have to break Erome results, and an unavailable provider is shown as status text instead of crashing the feed.
+
+### Feed Card Actions
+
+- `Open`: opens the original album or provider source.
+- `Seen`: records the album in the local seen bucket.
+- `Skip`: records the album in the local skipped bucket and moves on.
+- `Save`: records the album in the local saved bucket.
+- `Download`: starts an asynchronous local album or media download job.
+- Media controls: play, pause, seek, change volume, change speed, use picture-in-picture, or fullscreen.
+
+History filters use the local album buckets. If `Hide skipped` is on, skipped cards disappear from future feed rendering until you clear or unskip them.
+
 ## Search Modes
 
 The Search tab and feed search source both call the same backend search behavior through `match_mode`:
@@ -185,6 +260,25 @@ travel; beach; #cosplay
 ```
 
 Selected hashtag chips are combined with typed search terms. When hashtag precision is needed, the backend enriches candidate albums with detail metadata before filtering.
+
+### Search Step-By-Step
+
+1. Open the Search tab for direct JSON search, or choose `Search keyword` in the Feed tab for card-based browsing.
+2. Choose the site: Erome, XXXErome, or auto/default depending on the control.
+3. Enter words, phrases, hashtags, or a combination.
+4. Add hashtag chips when you want reusable tags across feed/search actions.
+5. Choose `site`, `all`, `any`, `exact`, or `combo`.
+6. Set page and limit for direct Search tab calls.
+7. Click `Run Search` or `Start Feed`.
+8. Inspect JSON output or browse rendered cards.
+9. If results feel too broad, switch from `site` or `any` to `all`, `exact`, or `combo`.
+10. If results feel too narrow, remove hide terms, clear history filters, reduce hashtags, or use `site` mode.
+
+### How Matching Works
+
+`site` mode uses the public site's own search endpoint first. When hashtags are present, EroTok can enrich returned albums with detail metadata and filter by real tags. `all`, `any`, `exact`, and `combo` run local matching against normalized album title, username, URL, tags, description, and metadata that the parser can see.
+
+`combo` is the strictest mixed mode. It requires plain terms and requested hashtags to match the enriched album metadata, which is useful when a word appears in titles but you only want albums with the actual tag.
 
 ## Album History
 
@@ -221,6 +315,18 @@ Clear one bucket or all buckets:
 ```json
 { "bucket": "all" }
 ```
+
+### Album History Step-By-Step
+
+1. Browse feed cards or preview results.
+2. Mark albums as seen when you have already watched them.
+3. Mark albums as skipped when you do not want them shown again in the current browsing style.
+4. Mark albums as saved when you want to keep a local reminder.
+5. Use `Hide seen`, `Hide skipped`, and `Hide saved` to decide which buckets are filtered out of the visible feed.
+6. Use `Clear seen`, `Clear skipped`, or `Clear saved` when you want that bucket reset.
+7. Use `/api/albums/history` to inspect the stored buckets from automation.
+
+Album history is not the same as download history. Album history controls browsing visibility. Download history controls whether known downloaded media URLs are skipped during future download jobs.
 
 ## Downloads
 
@@ -274,6 +380,38 @@ Example single-media body:
 }
 ```
 
+### Download Step-By-Step From The UI
+
+1. Set `Download Folder` in result tools or `Directory` in the Download tab.
+2. Choose the media type: all, photo, or video.
+3. Leave `Overwrite` false for normal archiving, or set it true when you want to force a fresh write.
+4. For an album, enter an album slug or URL in the Download tab and click `Run Download`.
+5. From a feed card, click the album download action to download that card's album.
+6. From a previewed media item, click the single-media download action to save just that file.
+7. Watch the status line for job progress, retry messages, item counts, and final state.
+8. Inspect active jobs through the JSON output or `GET /api/download/jobs`.
+9. If a media type filter returns no files, the UI can retry with photos plus videos for album downloads.
+10. If a previous file is incomplete or stale, turn on `Overwrite` once to force a real replacement.
+
+### How Download Jobs Work
+
+The UI uses asynchronous job endpoints so the browser does not freeze while files are being written. Node creates a job record, starts `api_bridge.py`, and listens for newline-delimited progress events. Python reports `item_start`, `item_progress`, `retry`, and `item_done` events. Node stores the latest event list in memory so `/api/download/jobs/<job-id>` can show live progress.
+
+Album downloads use `download_album_progress`; single-media downloads use `download_media_progress`. Both retry transient failures. Media is written through temporary `.part` files and moved into place only after the stream completes, so a failed stream should not leave a final filename that gets mistaken for a completed download.
+
+Download history records successful media URLs in `state.json`. When `skip_downloaded` is true, future album downloads send known successful URLs to Python as `skip_urls`. Stale skipped or failed items are not treated as successful downloads. `overwrite` bypasses skip history for that request.
+
+### Download Output Layout
+
+Album files are saved under a readable folder name based on title, album slug, and username:
+
+```text
+Downloads/<Album Title> (<slug>) [<username>]/<Album Title> (1).jpg
+Downloads/<Album Title> (<slug>) [<username>]/<Album Title> (2).mp4
+```
+
+Single-media downloads save directly under the chosen directory unless you provide a filename.
+
 ## Reddit Feed Setup
 
 Reddit support is optional and read-only. It uses Reddit OAuth and stores tokens locally in `state.json`; `/api/state` redacts token values before returning state to the browser.
@@ -308,6 +446,18 @@ GET  /api/reddit/callback
 POST /api/reddit/disconnect
 GET  /api/reddit/feed?kind=home|hot|new|subreddit|search&limit=12
 ```
+
+### How Reddit Feeds Work
+
+1. The browser saves your Reddit app client settings through `/api/reddit/config`.
+2. `Connect Reddit` opens `/api/reddit/login`, which redirects to Reddit OAuth.
+3. Reddit redirects back to `/api/reddit/callback` with an authorization code.
+4. Node exchanges that code for access and refresh tokens.
+5. Tokens are stored locally in `state.json`; `/api/state` and `/api/reddit/status` only return redacted status to the browser.
+6. Feed requests refresh the access token when needed.
+7. Reddit listing responses are normalized into EroTok feed items with album-like metadata and direct media URLs when available.
+
+Use `Disconnect` to clear the stored Reddit auth from local state.
 
 ## Twitter/X Feed Setup
 
@@ -354,6 +504,17 @@ GET /api/twitter/feed?query=has:media&limit=12&after=<token>
 
 The route always returns JSON. API failures and anonymous app-shell failures are reported as provider-unavailable responses instead of crashing the server.
 
+### How Twitter/X Feeds Work
+
+1. If `X_BEARER_TOKEN` or `TWITTER_BEARER_TOKEN` is set, Node uses X API v2.
+2. For profile mode, Node resolves the username to a user ID and requests recent tweets with media expansions.
+3. For search mode, Node sends a recent-search query and adds `has:media` when needed.
+4. X API media expansions are normalized into feed cards with media URLs, thumbnails, source links, and usernames.
+5. If no bearer token is set, Node tries the public `x.com` profile/media or search page.
+6. If public X returns only its app shell, the response is still `ok: true`, but the feed data is marked unavailable with a message.
+
+Twitter/X support is best treated as optional. X API access depends on your token, plan, rate limits, and endpoint permissions.
+
 ## Node API Reference
 
 The local bridge exposes JSON routes for the UI, userscripts, and automation:
@@ -396,6 +557,18 @@ GET  /api/twitter/feed?query=has:media&limit=12
 ```
 
 All JSON responses use an `ok` field. Successful bridge responses generally return data under `data`; errors return `ok: false` and an `error` message.
+
+### Node API Usage Pattern
+
+1. Start `node server.js`.
+2. Call `GET /health` to confirm the server is up.
+3. Use `GET` routes for read-only lookups and previews.
+4. Use `POST` routes for settings, history marks, downloads, and watcher actions that create work.
+5. For long downloads, prefer `/api/download/jobs` over synchronous `/api/download`.
+6. Poll `/api/download/jobs/<id>` until `status` is `done` or `error`.
+7. Treat `ok: false` as a request-level failure, and provider-specific `unavailable` messages as handled provider limitations.
+
+The Node API is useful for userscripts, local automation, browser bookmarks, curl scripts, and any tool that can send HTTP requests to localhost.
 
 ## Python API Usage
 
@@ -444,6 +617,21 @@ Important public methods:
 - `download_album(path, directory, include_photos, include_videos, overwrite, max_workers, skip_urls, retry_until_done, retry_delay)`
 - `download_media(url, directory, filename, overwrite, retry_until_done, retry_delay)`
 
+### Python API Step-By-Step
+
+1. Import `Api` from `api.py`.
+2. Create one `Api()` instance per script or workflow.
+3. Use `get_explore`, `get_all_album_data`, or `get_profile_info` to discover public albums.
+4. Use `get_album_info` when you need title, username, slug, and ordered media URLs.
+5. Use `get_album_metadata` when you need counts, tags, likes, views, and durations where the public page exposes them.
+6. Use `get_content` for direct media bytes.
+7. Use `download_album` for full album archiving.
+8. Use `download_media` for one media URL.
+9. Pass a `progress_callback` when you want progress events in your own script.
+10. Use `retry_until_done=True` only when you intentionally want a download to keep retrying until it succeeds or the process is stopped.
+
+The Python layer validates input types, normalizes supported Erome/XXXErome and Reddit media URLs, sanitizes filenames, writes safe sequential album filenames, and closes streamed HTTP responses after each media request.
+
 ## API Bridge Usage
 
 `api_bridge.py` is a JSON-over-stdin wrapper used by `server.js`. You can also call it directly:
@@ -473,6 +661,24 @@ watcher_*
 ```
 
 Progress methods print newline-delimited `{"progress": ...}` events before the final JSON result.
+
+### Bridge Message Shape
+
+Normal bridge calls receive one JSON object on stdin and print one JSON object on stdout:
+
+```json
+{ "ok": true, "data": [] }
+```
+
+Progress bridge calls print progress lines first, then a final result:
+
+```json
+{ "progress": { "event": "item_start", "percent": 0 } }
+{ "progress": { "event": "item_progress", "percent": 45 } }
+{ "ok": true, "data": [] }
+```
+
+This is why `server.js` can show live download progress while still treating the final line as the completed job result.
 
 ## Watcher Tools
 
@@ -587,6 +793,19 @@ python post_alert_to_hermes.py YOUR_WEBHOOK_URL SOME_USERNAME
 
 The `erome-watcher/examples/` folder contains sample MCP config, webhook config, and cron prompt files.
 
+### Watcher Step-By-Step
+
+1. Start either the integrated Node bridge or the standalone watcher API.
+2. Fetch a public profile snapshot with `/api/watcher/profile/<username>` or `/profile/{username}`.
+3. Run a diff with `/diff` to compare the newest public snapshot with stored history.
+4. Use `/watch` to update stored state for a profile.
+5. Use `/watch/alert` when you want a formatted alert payload for new or changed public albums.
+6. Use `/index/profile`, `/index/explore`, or `/index/rebuild` to populate the local search index.
+7. Use `/search` for indexed local search and `/search/live` for live public search.
+8. Use watcher download routes when you want watcher-driven downloads to reuse the same main API downloader.
+
+The watcher is for repeated public-page monitoring. It is separate from album history: watcher state tracks snapshots and index data, while the root UI album history tracks seen, skipped, and saved browsing buckets.
+
 ## Userscripts
 
 Install userscripts with Tampermonkey, Violentmonkey, or another compatible manager.
@@ -632,6 +851,18 @@ userscript/profile-video-only.user.js
 ```
 
 This script adds a small toolbar on Erome and XXXErome profile/post pages. It can toggle visible cards to likely video posts only, refresh the scan, and persist the toggle in browser local storage. It does not call the local bridge and does not download media.
+
+### Userscript Step-By-Step
+
+1. Install Tampermonkey, Violentmonkey, or a compatible userscript manager.
+2. Install the desired script from `userscript/`.
+3. Start `node server.js` if the script needs the local bridge.
+4. Open a public supported page in your browser.
+5. Use the injected panel or toolbar on that page.
+6. For EroTok Mini, keep the local app running because search, explore, profile, and download actions call `http://127.0.0.1:3000`.
+7. For Profile Videos Only, no local server is needed because filtering runs entirely in the page.
+
+Userscripts are convenience layers. The actual heavy work still belongs to the local Node/Python app unless the script explicitly says it is page-only.
 
 ## Generic Media Gallery API Scaffold
 
@@ -683,6 +914,18 @@ Important files:
 - `API_DESIGN.md`: endpoint and response-envelope design
 
 Add site-specific parsing only by creating a new adapter under `media_gallery_api/adapters/` and keeping raw selectors isolated there.
+
+### Scaffold Step-By-Step
+
+1. Start the scaffold API on a separate port such as `8015`.
+2. Open `/docs` to inspect the generated FastAPI documentation.
+3. Call `/sources` to list available adapter IDs.
+4. Call `/resolve?url=...` to see which adapter can handle a URL.
+5. Call `/profile?url=...` or `/gallery?url=...` to receive normalized response envelopes.
+6. Add new adapters by implementing the shared interfaces in `media_gallery_api/core/interfaces.py`.
+7. Keep parser-specific selectors inside the adapter so the service and response models stay reusable.
+
+This scaffold is useful when you want to experiment with a cleaner multi-source API shape without changing the root EroTok app.
 
 ## Screenshots And Assets
 
@@ -798,6 +1041,12 @@ If a Reddit connection fails, refresh `/api/reddit/status`, confirm the redirect
 If Twitter/X returns no items, check the route response message. Anonymous public pages often return an app shell with no media URLs; reliable results usually require an X API bearer token and plan access to the requested endpoints.
 
 If profile or search results are empty, try the other public site option (`https://www.erome.com` or `https://xxxerome.com`), reduce filters, clear seen/skipped history, and verify the source page is public in a browser.
+
+If downloads skip something you expected to retry, turn on `Overwrite` for that run or remove the existing file from the target folder. Successful downloads are remembered by URL; incomplete `.part` files are temporary and can be safely removed if a process is interrupted.
+
+If the feed hides too much, clear hide terms and turn off `Hide seen`, `Hide skipped`, and `Hide saved` while testing. History filters are local convenience filters, not provider-side filters.
+
+If the watcher dashboard says it is not built, run `cd erome-watcher/gui && npm install && npm run build`, then restart or reload the Node server.
 
 ## License
 
