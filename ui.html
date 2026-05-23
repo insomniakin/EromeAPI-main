@@ -188,6 +188,61 @@
     }
     .status.ok { border-color: rgba(52, 211, 153, 0.55); color: #bdfce6; }
     .status.err { border-color: rgba(248, 113, 113, 0.55); color: #fecaca; }
+    .download-queue-panel {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.76);
+    }
+    .download-queue-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .download-queue-head strong { font-size: 13px; }
+    .download-queue-head button { width: auto; min-width: 86px; padding: 8px 10px; }
+    .download-queue { display: grid; gap: 8px; }
+    .download-queue-empty { color: var(--muted); font-size: 12px; }
+    .download-queue-item {
+      display: grid;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid rgba(156, 163, 175, 0.22);
+      border-radius: 8px;
+      background: rgba(2, 6, 23, 0.45);
+    }
+    .download-queue-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .download-queue-meta {
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .download-queue-progress {
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #111827;
+    }
+    .download-queue-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--brand), var(--ok));
+    }
+    .download-queue-status-error .download-queue-bar { background: var(--err); }
+    .download-queue-status-done .download-queue-bar { background: var(--ok); }
     pre {
       margin: 0;
       padding: 12px;
@@ -1100,6 +1155,18 @@
           <button id="previewClear">Clear Preview</button>
         </div>
       </div>
+      <div id="downloadQueuePanel" class="download-queue-panel">
+        <div class="download-queue-head">
+          <div>
+            <strong>Download Queue</strong>
+            <div class="muted">Clicked downloads stay here and retry until saved.</div>
+          </div>
+          <button id="refreshDownloadQueue" type="button">Refresh</button>
+        </div>
+        <div id="downloadQueue" class="download-queue">
+          <div class="download-queue-empty">No downloads queued yet.</div>
+        </div>
+      </div>
       <div id="feedHost" class="feed-wrap" hidden>
         <button id="feedExitDesktop" class="feed-exit-desktop">Exit Desktop</button>
         <div class="feed-scroll" id="feedScroll"></div>
@@ -1125,6 +1192,7 @@
     const resultPreviewScrollEl = document.getElementById('resultPreviewScroll');
     const resultPreviewEmptyEl = document.getElementById('resultPreviewEmpty');
     const resultPreviewLoadingEl = document.getElementById('resultPreviewLoading');
+    const downloadQueueEl = document.getElementById('downloadQueue');
     const resultState = {
       album: null,
       profile: null,
@@ -1136,6 +1204,7 @@
       observer: null,
     };
     const activeDownloadJobs = new Map();
+    let downloadQueueItems = [];
     const SUGGESTED_HASHTAGS = [
       '#tattoos', '#alternative girl', '#egirl', '#redhair', '#outdoor', '#cosplay',
       '#pink hair', '#piercing', '#goth', '#alt style', '#cabelo rosa',
@@ -2009,9 +2078,60 @@
       return `${job.kind || 'download'} ${String(job.id || '').slice(0, 8)}: ${job.percent || 0}% (${totalText}) ${job.status || 'running'}${currentName}.${retryText}`;
     }
 
+    function downloadQueueLabel(item) {
+      const request = item.request || {};
+      if (item.kind === 'media') return request.url || (item.current && item.current.url) || item.id || 'media';
+      return request.path || request.url || item.key || item.id || 'album';
+    }
+
+    function renderDownloadQueue(items = downloadQueueItems) {
+      if (!downloadQueueEl) return;
+      const list = Array.isArray(items) ? items : [];
+      if (!list.length) {
+        downloadQueueEl.innerHTML = '<div class="download-queue-empty">No downloads queued yet.</div>';
+        return;
+      }
+      downloadQueueEl.innerHTML = list.slice(0, 30).map((item) => {
+        const percent = Math.max(0, Math.min(100, Number(item.percent || 0)));
+        const totalText = item.total ? `${item.completed || 0}/${item.total}` : `${item.completed || 0}/?`;
+        const status = String(item.status || 'queued');
+        const retry = item.retry_count ? ` · retries ${item.retry_count}` : '';
+        const error = item.last_error ? ` · ${item.last_error}` : '';
+        const label = downloadQueueLabel(item);
+        return `<div class="download-queue-item download-queue-status-${escapeHtml(status)}">
+          <div class="download-queue-top"><span>${escapeHtml(item.kind || 'download')}</span><span>${escapeHtml(status)} ${percent}%</span></div>
+          <div class="download-queue-progress"><div class="download-queue-bar" style="width:${percent}%"></div></div>
+          <div class="download-queue-meta" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+          <div class="download-queue-meta">${escapeHtml(totalText + retry + error)}</div>
+        </div>`;
+      }).join('');
+    }
+
+    function mergeDownloadQueueItems(items) {
+      const byId = new Map(downloadQueueItems.map((item) => [item.id, item]));
+      (items || []).forEach((item) => {
+        if (item && item.id) byId.set(item.id, { ...(byId.get(item.id) || {}), ...item });
+      });
+      downloadQueueItems = Array.from(byId.values()).sort((left, right) => String(right.updated_at || right.created_at || '').localeCompare(String(left.updated_at || left.created_at || '')));
+      renderDownloadQueue(downloadQueueItems);
+    }
+
+    async function refreshDownloadQueue() {
+      try {
+        const response = await getJson('/api/download/queue');
+        downloadQueueItems = Array.isArray(response.data) ? response.data : [];
+        renderDownloadQueue(downloadQueueItems);
+        return downloadQueueItems;
+      } catch (error) {
+        downloadQueueEl.innerHTML = `<div class="download-queue-empty">Queue unavailable: ${escapeHtml(error.message || error)}</div>`;
+        return [];
+      }
+    }
+
     function rememberDownloadJob(job) {
       if (!job || !job.id) return;
       activeDownloadJobs.set(job.id, job);
+      mergeDownloadQueueItems([{ ...job, retry_until_done: true }]);
       showJson({
         ok: true,
         active_downloads: Array.from(activeDownloadJobs.values()).map((item) => ({
@@ -2057,10 +2177,11 @@
     }
 
     async function startDownloadJob(endpoint, body, hooks = {}) {
+      const requestBody = { ...body, retry_until_done: true };
       const started = await getJson(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(requestBody),
       });
       const job = started.data;
       updateDownloadJobStatus(job);
@@ -2223,6 +2344,7 @@
           skip_downloaded: true,
           overwrite: document.getElementById('downloadOverwrite').value === 'true',
           max_workers: Number(document.getElementById('downloadWorkers').value || 4),
+          retry_until_done: true,
         };
         return startDownloadJob('/api/download/jobs', body).then(async (result) => {
           const media = Array.isArray(result && result.data) ? result.data : [];
@@ -2243,6 +2365,7 @@
             include_photos: true,
             include_videos: true,
             media_type: 'all',
+            retry_until_done: true,
           });
         });
       },
@@ -2260,6 +2383,7 @@
     document.getElementById('runMediaBinary').onclick = () => run('mediaBinary');
     document.getElementById('runDownload').onclick = () => run('download');
     document.getElementById('runDiagnostics').onclick = () => run('diagnostics');
+    document.getElementById('refreshDownloadQueue').onclick = () => refreshDownloadQueue();
     document.getElementById('addHashtags').onclick = () => {
       const input = document.getElementById('hashtagInput');
       addHashtagTerms(parseHashtagInput(input.value));
@@ -2812,6 +2936,7 @@
         skip_downloaded: true,
         overwrite: document.getElementById('downloadOverwrite').value === 'true',
         max_workers: Number(document.getElementById('downloadWorkers').value || 4),
+        retry_until_done: true,
       };
       try {
         const result = await startDownloadJob('/api/download/jobs', body, {
@@ -2860,6 +2985,7 @@
           directory: selectedDownloadDirectory(),
           overwrite: document.getElementById('downloadOverwrite').value === 'true',
           skip_downloaded: true,
+          retry_until_done: true,
         }, {
           onUpdate: (job) => {
             const retry = job.last_error ? ` Retrying after: ${job.last_error}` : '';
@@ -3397,7 +3523,7 @@
     bindProfileInputSync();
     syncProfileInputs('', false);
     renderHashtagChips();
-    loadBackendState().then(loadAlbumHistory).then(loadRedditStatus).finally(() => run('health'));
+    loadBackendState().then(loadAlbumHistory).then(loadRedditStatus).then(refreshDownloadQueue).finally(() => run('health'));
   </script>
 </body>
 </html>

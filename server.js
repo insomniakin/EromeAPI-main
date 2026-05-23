@@ -144,6 +144,7 @@ const DEFAULT_STATE = {
     media: {},
     albums: {},
   },
+  download_queue: [],
   albums: {
     seen: {},
     skipped: {},
@@ -204,6 +205,9 @@ function normalizeState(rawState = {}) {
       media: { ...((rawState.downloaded && rawState.downloaded.media) || {}) },
       albums: { ...((rawState.downloaded && rawState.downloaded.albums) || {}) },
     },
+    download_queue: Array.isArray(rawState.download_queue)
+      ? rawState.download_queue.map(normalizeDownloadQueueItem).filter(Boolean)
+      : [],
     albums: {
       seen: { ...((rawState.albums && rawState.albums.seen) || {}) },
       skipped: { ...((rawState.albums && rawState.albums.skipped) || {}) },
@@ -216,6 +220,33 @@ function normalizeState(rawState = {}) {
       oauth_state: String((rawState.reddit && rawState.reddit.oauth_state) || ""),
       auth: rawState.reddit && rawState.reddit.auth ? { ...rawState.reddit.auth } : null,
     },
+  };
+}
+
+function normalizeDownloadQueueItem(item = {}) {
+  if (!item || typeof item !== "object") return null;
+  const request = item.request && typeof item.request === "object" ? { ...item.request } : {};
+  const id = String(item.id || item.job_id || item.key || "").trim();
+  const key = String(item.key || request.url || request.path || id || "").trim();
+  if (!id && !key) return null;
+  return {
+    id: id || key,
+    job_id: String(item.job_id || id || key),
+    key,
+    kind: String(item.kind || "download"),
+    status: String(item.status || "queued"),
+    retry_until_done: item.retry_until_done !== false,
+    created_at: String(item.created_at || item.updated_at || ""),
+    updated_at: String(item.updated_at || item.created_at || ""),
+    percent: Number.isFinite(Number(item.percent)) ? Number(item.percent) : 0,
+    completed: Number.isFinite(Number(item.completed)) ? Number(item.completed) : 0,
+    total: Number.isFinite(Number(item.total)) ? Number(item.total) : 0,
+    attempts: Number.isFinite(Number(item.attempts)) ? Number(item.attempts) : 0,
+    retry_count: Number.isFinite(Number(item.retry_count)) ? Number(item.retry_count) : 0,
+    last_error: String(item.last_error || ""),
+    current: item.current && typeof item.current === "object" ? { ...item.current } : null,
+    result: item.result === undefined ? null : item.result,
+    request,
   };
 }
 
@@ -255,6 +286,98 @@ function writeState(state) {
   return normalized;
 }
 
+function sanitizeDownloadRequest(kind, request = {}) {
+  const cleaned = {
+    directory: String(request.directory || "Downloads"),
+    overwrite: request.overwrite === true,
+    skip_downloaded: request.skip_downloaded !== false,
+    retry_until_done: true,
+  };
+  if (kind === "album") {
+    cleaned.path = String(request.path || request.url || request.album_url || "");
+    cleaned.include_photos = request.include_photos !== false;
+    cleaned.include_videos = request.include_videos !== false;
+    cleaned.media_type = String(request.media_type || "all");
+    cleaned.max_workers = getInt(request.max_workers, 4);
+  } else if (kind === "media") {
+    cleaned.url = normalizeMediaUrl(request.url || "");
+    cleaned.album = String(request.album || request.album_url || "");
+    cleaned.filename = String(request.filename || "");
+  }
+  return cleaned;
+}
+
+function downloadQueueKey(kind, request = {}) {
+  if (kind === "media") {
+    return `media:${normalizeMediaUrl(request.url || "")}`;
+  }
+  if (kind === "album") {
+    const path = albumPathFromValue(request.path || request.url || request.album_url || "");
+    return `album:${path}:${request.directory || "Downloads"}:${request.media_type || "all"}`;
+  }
+  return `${kind}:${request.path || request.url || randomUUID()}`;
+}
+
+function downloadJobQueueSnapshot(job, existing = {}) {
+  return {
+    id: job.id,
+    job_id: job.id,
+    key: job.queue_key || existing.key || job.id,
+    kind: job.kind || existing.kind || "download",
+    status: job.status || existing.status || "queued",
+    retry_until_done: job.retry_until_done !== false,
+    created_at: existing.created_at || job.created_at || new Date().toISOString(),
+    updated_at: job.updated_at || new Date().toISOString(),
+    percent: job.percent || 0,
+    completed: job.completed || 0,
+    total: job.total || 0,
+    attempts: job.attempts || 0,
+    retry_count: job.retry_count || 0,
+    last_error: job.last_error || "",
+    current: job.current || null,
+    result: job.result || null,
+    request: job.queue_request || existing.request || {},
+  };
+}
+
+function upsertDownloadQueueItem(state, snapshot) {
+  const queue = Array.isArray(state.download_queue) ? state.download_queue : [];
+  const filtered = queue.filter((item) => item && item.id !== snapshot.id && item.key !== snapshot.key);
+  filtered.push(snapshot);
+  state.download_queue = filtered.slice(-DOWNLOAD_JOB_LIMIT);
+}
+
+function queueDownloadJob(job, kind, request = {}) {
+  const cleanRequest = sanitizeDownloadRequest(kind, request);
+  job.queue_request = cleanRequest;
+  job.queue_key = downloadQueueKey(kind, cleanRequest);
+  job.retry_until_done = true;
+  persistDownloadJobSnapshot(job);
+  return job;
+}
+
+function persistDownloadJobSnapshot(job) {
+  if (!job || !job.queue_key) return;
+  const state = readState();
+  const existing = (state.download_queue || []).find((item) => item.id === job.id || item.key === job.queue_key) || {};
+  upsertDownloadQueueItem(state, downloadJobQueueSnapshot(job, existing));
+  writeState(state);
+}
+
+function currentDownloadQueueItems() {
+  const state = readState();
+  const byKey = new Map((state.download_queue || []).map((item) => [item.key || item.id, item]));
+  for (const job of downloadJobs.values()) {
+    if (!job.queue_key) continue;
+    const existing = byKey.get(job.queue_key) || {};
+    byKey.set(job.queue_key, downloadJobQueueSnapshot(job, existing));
+  }
+  return Array.from(byKey.values())
+    .map(normalizeDownloadQueueItem)
+    .filter(Boolean)
+    .sort((left, right) => String(right.updated_at || right.created_at).localeCompare(String(left.updated_at || left.created_at)));
+}
+
 function publicDownloadJob(job) {
   return {
     id: job.id,
@@ -272,6 +395,9 @@ function publicDownloadJob(job) {
     error: job.error,
     result: job.result,
     events: job.events,
+    retry_until_done: job.retry_until_done !== false,
+    queue_key: job.queue_key || "",
+    request: job.queue_request || null,
   };
 }
 
@@ -349,6 +475,7 @@ function handleDownloadJobMessage(job, message) {
       job.retry_count += 1;
     }
     rememberDownloadEvent(job, progress);
+    if (progress.event !== "item_progress") persistDownloadJobSnapshot(job);
     return;
   }
 
@@ -368,6 +495,7 @@ function handleDownloadJobMessage(job, message) {
       total: job.total,
       percent: 100,
     });
+    persistDownloadJobSnapshot(job);
     return;
   }
 
@@ -376,6 +504,7 @@ function handleDownloadJobMessage(job, message) {
     job.error = message.error;
     job.last_error = message.error;
     rememberDownloadEvent(job, { event: "job_error", status: "error", error: message.error });
+    persistDownloadJobSnapshot(job);
   }
 }
 
@@ -451,6 +580,7 @@ function startBridgeDownloadJob(kind, method, payload, finalize) {
     job.error = error.message || String(error);
     job.last_error = job.error;
     rememberDownloadEvent(job, { event: "job_error", status: "error", error: job.error });
+    persistDownloadJobSnapshot(job);
   });
 
   child.on("close", (code) => {
@@ -461,6 +591,7 @@ function startBridgeDownloadJob(kind, method, payload, finalize) {
       job.error = job.error || job.last_error || job.stderr.trim() || `Bridge process exited with code ${code}.`;
       job.last_error = job.error;
       rememberDownloadEvent(job, { event: "job_error", status: "error", error: job.error });
+      persistDownloadJobSnapshot(job);
       return;
     }
     if (code === 0 && job.status !== "done") {
@@ -468,6 +599,7 @@ function startBridgeDownloadJob(kind, method, payload, finalize) {
       job.error = job.error || job.last_error || "Bridge exited without a final download result.";
       job.last_error = job.error;
       rememberDownloadEvent(job, { event: "job_error", status: "error", error: job.error });
+      persistDownloadJobSnapshot(job);
       return;
     }
     if (job.status === "done" && typeof finalize === "function") {
@@ -477,6 +609,7 @@ function startBridgeDownloadJob(kind, method, payload, finalize) {
         job.state_error = error.message || String(error);
         rememberDownloadEvent(job, { event: "state_error", status: "warning", error: job.state_error });
       }
+      persistDownloadJobSnapshot(job);
     }
   });
 
@@ -511,7 +644,24 @@ function startAlbumDownloadJob(body) {
   };
   writeState(state);
 
-  return startBridgeDownloadJob(
+  const queueRequest = {
+    path: sourcePath,
+    directory,
+    include_photos: body.include_photos !== false && mediaType !== "video",
+    include_videos: body.include_videos !== false && mediaType !== "photo",
+    media_type: mediaType,
+    skip_downloaded: requestedSkipDownloaded,
+    overwrite,
+    max_workers: maxWorkers,
+    retry_until_done: true,
+  };
+  const queueKey = downloadQueueKey("album", queueRequest);
+  const existing = Array.from(downloadJobs.values()).find(
+    (job) => job.kind === "album" && ["running", "retrying"].includes(job.status) && job.queue_key === queueKey
+  );
+  if (existing) return existing;
+
+  return queueDownloadJob(startBridgeDownloadJob(
     "album",
     "download_album_progress",
     {
@@ -522,10 +672,11 @@ function startAlbumDownloadJob(body) {
       overwrite,
       max_workers: maxWorkers,
       skip_urls: skipDownloaded ? downloadedMediaUrls(state) : [],
+      retry_until_done: true,
       retry_delay: Number.isFinite(Number(body.retry_delay)) ? Number(body.retry_delay) : 0.5,
     },
     (results) => finalizeDownloadedResults(results, albumPath)
-  );
+  ), "album", queueRequest);
 }
 
 function startMediaDownloadJob(body) {
@@ -544,8 +695,22 @@ function startMediaDownloadJob(body) {
   };
   writeState(state);
 
+  const queueRequest = {
+    url: mediaUrl,
+    album: body.album || body.album_url || "",
+    directory,
+    filename: body.filename || "",
+    skip_downloaded: requestedSkipDownloaded,
+    overwrite,
+    retry_until_done: true,
+  };
+
   if (skipDownloaded && isDownloadedMediaRecord(state.downloaded.media[mediaUrl])) {
-    return createCompletedDownloadJob("media", { ...state.downloaded.media[mediaUrl], status: "skipped_downloaded" });
+    return queueDownloadJob(
+      createCompletedDownloadJob("media", { ...state.downloaded.media[mediaUrl], status: "skipped_downloaded" }),
+      "media",
+      queueRequest
+    );
   }
 
   const existing = Array.from(downloadJobs.values()).find(
@@ -564,12 +729,36 @@ function startMediaDownloadJob(body) {
       directory,
       filename: body.filename || "",
       overwrite,
+      retry_until_done: true,
       retry_delay: Number.isFinite(Number(body.retry_delay)) ? Number(body.retry_delay) : 0.5,
     },
     (result) => finalizeDownloadedResults(result, albumPath)
   );
   job.media_url = mediaUrl;
-  return job;
+  return queueDownloadJob(job, "media", queueRequest);
+}
+
+function shouldResumeDownloadQueueItem(item) {
+  return item && item.retry_until_done !== false && !["done", "skipped_downloaded"].includes(item.status);
+}
+
+function resumeQueuedDownloads() {
+  const items = currentDownloadQueueItems().filter(shouldResumeDownloadQueueItem);
+  for (const item of items) {
+    if (!item.request || typeof item.request !== "object") continue;
+    try {
+      if (item.kind === "album") {
+        startAlbumDownloadJob({ ...item.request, retry_until_done: true });
+      } else if (item.kind === "media") {
+        startMediaDownloadJob({ ...item.request, retry_until_done: true });
+      }
+    } catch (error) {
+      const state = readState();
+      const failed = { ...item, status: "error", updated_at: new Date().toISOString(), last_error: error.message || String(error) };
+      upsertDownloadQueueItem(state, failed);
+      writeState(state);
+    }
+  }
 }
 
 function getDownloadJob(pathname) {
@@ -1592,6 +1781,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === "GET" && path === "/api/download/queue") {
+      sendJson(res, 200, { ok: true, data: currentDownloadQueueItems() });
+      return;
+    }
+
     if (req.method === "GET" && path === "/api/reddit/status") {
       const state = readState();
       state.reddit.redirect_uri = redditRedirectUri(req);
@@ -2049,6 +2243,7 @@ const server = http.createServer(async (req, res) => {
         "GET /api/settings",
         "POST /api/settings",
         "GET /api/downloaded",
+        "GET /api/download/queue",
         "GET /api/reddit/status",
         "POST /api/reddit/config",
         "GET /api/reddit/login",
@@ -2099,5 +2294,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
+  resumeQueuedDownloads();
   console.log(`EroTok server listening on http://${HOST}:${PORT}`);
 });

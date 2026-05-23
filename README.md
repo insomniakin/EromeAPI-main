@@ -354,6 +354,7 @@ POST /api/download/jobs
 POST /api/download/media/jobs
 GET  /api/download/jobs
 GET  /api/download/jobs/<job-id>
+GET  /api/download/queue
 ```
 
 Example album job body:
@@ -365,7 +366,8 @@ Example album job body:
   "media_type": "all",
   "overwrite": false,
   "skip_downloaded": true,
-  "max_workers": 4
+  "max_workers": 4,
+  "retry_until_done": true
 }
 ```
 
@@ -376,7 +378,8 @@ Example single-media body:
   "url": "https://example.com/media.mp4",
   "directory": "Downloads",
   "filename": "optional-name.mp4",
-  "overwrite": false
+  "overwrite": false,
+  "retry_until_done": true
 }
 ```
 
@@ -388,16 +391,16 @@ Example single-media body:
 4. For an album, enter an album slug or URL in the Download tab and click `Run Download`.
 5. From a feed card, click the album download action to download that card's album.
 6. From a previewed media item, click the single-media download action to save just that file.
-7. Watch the status line for job progress, retry messages, item counts, and final state.
-8. Inspect active jobs through the JSON output or `GET /api/download/jobs`.
+7. Watch the status line and `Download Queue` panel for job progress, retry messages, item counts, and final state.
+8. Inspect active jobs through the JSON output, `GET /api/download/jobs`, or the permanent queue at `GET /api/download/queue`.
 9. If a media type filter returns no files, the UI can retry with photos plus videos for album downloads.
 10. If a previous file is incomplete or stale, turn on `Overwrite` once to force a real replacement.
 
 ### How Download Jobs Work
 
-The UI uses asynchronous job endpoints so the browser does not freeze while files are being written. Node creates a job record, starts `api_bridge.py`, and listens for newline-delimited progress events. Python reports `item_start`, `item_progress`, `retry`, and `item_done` events. Node stores the latest event list in memory so `/api/download/jobs/<job-id>` can show live progress.
+The UI uses asynchronous job endpoints so the browser does not freeze while files are being written. Node creates a job record, adds the clicked download to the permanent `download_queue` in `state.json`, starts `api_bridge.py`, and listens for newline-delimited progress events. Python reports `item_start`, `item_progress`, `retry`, and `item_done` events. Node stores the latest event list in memory so `/api/download/jobs/<job-id>` can show live progress, and the queue route can show the latest saved job snapshot.
 
-Album downloads use `download_album_progress`; single-media downloads use `download_media_progress`. Both retry transient failures. Media is written through temporary `.part` files and moved into place only after the stream completes, so a failed stream should not leave a final filename that gets mistaken for a completed download.
+Album downloads use `download_album_progress`; single-media downloads use `download_media_progress`. UI job downloads are sent with `retry_until_done: true`, so transient failures stay in retry mode until the media saves or the server process is stopped. When the server starts again, unfinished queued downloads are resumed from the saved queue. Media is written through temporary `.part` files and moved into place only after the stream completes, so a failed stream should not leave a final filename that gets mistaken for a completed download.
 
 Download history records successful media URLs in `state.json`. When `skip_downloaded` is true, future album downloads send known successful URLs to Python as `skip_urls`. Stale skipped or failed items are not treated as successful downloads. `overwrite` bypasses skip history for that request.
 
@@ -526,6 +529,7 @@ GET  /api/state
 GET  /api/settings
 POST /api/settings
 GET  /api/downloaded
+GET  /api/download/queue
 GET  /api/albums/history
 POST /api/albums/mark
 POST /api/albums/clear-history
@@ -545,6 +549,7 @@ POST /api/download
 POST /api/download/jobs
 GET  /api/download/jobs
 GET  /api/download/jobs/<id>
+GET  /api/download/queue
 POST /api/download/media
 POST /api/download/media/jobs
 GET  /api/reddit/status
@@ -565,7 +570,7 @@ All JSON responses use an `ok` field. Successful bridge responses generally retu
 3. Use `GET` routes for read-only lookups and previews.
 4. Use `POST` routes for settings, history marks, downloads, and watcher actions that create work.
 5. For long downloads, prefer `/api/download/jobs` over synchronous `/api/download`.
-6. Poll `/api/download/jobs/<id>` until `status` is `done` or `error`.
+6. Poll `/api/download/jobs/<id>` for live progress, or call `/api/download/queue` to see the saved retry queue.
 7. Treat `ok: false` as a request-level failure, and provider-specific `unavailable` messages as handled provider limitations.
 
 The Node API is useful for userscripts, local automation, browser bookmarks, curl scripts, and any tool that can send HTTP requests to localhost.

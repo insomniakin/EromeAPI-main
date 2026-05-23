@@ -468,6 +468,24 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn("min-width: 72px", source)
         self.assertIn("font-variant-numeric: tabular-nums", source)
 
+    def test_download_jobs_are_persistent_retry_queue(self):
+        source = Path("server.js").read_text(encoding="utf-8")
+
+        self.assertIn("download_queue: []", source)
+        self.assertIn("function queueDownloadJob", source)
+        self.assertIn("function persistDownloadJobSnapshot", source)
+        self.assertIn('path === "/api/download/queue"', source)
+        self.assertIn("retry_until_done: true", source)
+
+    def test_root_ui_shows_permanent_download_queue(self):
+        source = Path("ui.html").read_text(encoding="utf-8")
+
+        self.assertIn('id="downloadQueue"', source)
+        self.assertIn("function renderDownloadQueue", source)
+        self.assertIn("refreshDownloadQueue", source)
+        self.assertIn("/api/download/queue", source)
+        self.assertIn("retry_until_done: true", source)
+
     def test_root_ui_has_buy_me_coffee_support_link(self):
         source = Path("ui.html").read_text(encoding="utf-8")
         qr_path = Path("app/assets/cashapp-qr.jpg")
