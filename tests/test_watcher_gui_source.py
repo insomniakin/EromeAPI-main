@@ -526,6 +526,19 @@ class WatcherGuiSourceTests(unittest.TestCase):
         self.assertIn("erotok-hide-terms", source)
         self.assertIn("erotok-selected-tags", source)
 
+    def test_root_erome_userscript_is_synced_and_not_duplicated(self):
+        source = Path("erome.js").read_text(encoding="utf-8")
+
+        self.assertEqual(source.count("// ==UserScript=="), 1)
+        self.assertEqual(source.count("(function () {"), 1)
+        self.assertEqual(source.count("})();"), 1)
+        self.assertIn("// @version      8.1.3-xxx-fixes", source)
+        self.assertIn("// @match        https://*.xxxerome.com/*", source)
+        self.assertIn("// @match        https://xxxerome.com/*", source)
+        self.assertIn("const isXxxErome", source)
+        self.assertIn("/^\\/(?:post|a)\\//", source)
+        self.assertNotIn("Insomniaqqqxxx", source)
+
     def test_sleazyfork_readme_requires_local_gui_api_and_assets(self):
         source = Path("SLEAZYFORK_README.md").read_text(encoding="utf-8")
 

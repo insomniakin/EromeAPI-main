@@ -1,22 +1,23 @@
 // ==UserScript==
 // @name         Erome Ultimate Premium - Optimized by Insomnia
 // @namespace    https://github.com/
-// @version      8.1.0-enhancer-merge
+// @version      8.1.3-xxx-fixes
 // @description  Fast, polished Erome enhancer with smart downloads, premium feed mode, filters, tracking, and low-overhead UI refreshes.
 // @icon         https://www.erome.com/favicon-32x32.png
 // @match        https://*.erome.com/*
-// @match        https://www.erome.com/*
+// @match        https://*.xxxerome.com/*
+// @match        https://xxxerome.com/*
 // @run-at       document-end
 // @grant        GM.xmlHttpRequest
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @grant        GM_download
 // @grant        GM_setClipboard
-// @grant        GM_setValue
-// @grant        GM_getValue
 // @connect      erome.com
 // @connect      *.erome.com
-// @connect      *
+// @connect      xxxerome.com
+// @connect      *.xxxerome.com
+// @connect      cloudfront.net
+// @connect      cdnjs.cloudflare.com
 // @require      https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js
 // @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js
 // @license      MIT
@@ -29,7 +30,7 @@
 
     const APP = {
         name: 'Erome Ultimate',
-        version: '8.1.0-enhancer-merge',
+        version: '8.1.3-xxx-fixes',
         storage: 'eu8:',
         accent: '#9b6cff',
         accent2: '#00d5ff',
@@ -65,12 +66,17 @@
         enhancerHideViewed: false,
         enhancerMinAvgVideoSeconds: 0,
         enhancerFetchLimit: 80,
-        enhancerMetaConcurrency: 2
+        enhancerMetaConcurrency: 2,
+        profileInlineFeed: true,
+        profileInlineLimit: 8
     };
 
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-    const isAlbumPage = /^\/a\//.test(location.pathname);
+    const isXxxErome = /(^|\.)xxxerome\.com$/i.test(location.hostname);
+    const isAlbumPage = isXxxErome
+        ? /^\/(?:post|a)\//.test(location.pathname)
+        : /^\/a\//.test(location.pathname);
     const seenNodes = new WeakSet();
     let refreshTimer = 0;
     let observer;
@@ -400,6 +406,82 @@
         .eu-api-album-card img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: #05070b; }
         .eu-api-album-card span { display: block; padding: 8px; min-height: 44px; color: #fff; font-size: 12px; font-weight: 850; line-height: 1.25; }
         .eu-api-json { max-height: 360px; overflow: auto; margin: 0; padding: 12px; border-radius: 8px; background: rgba(0,0,0,.42); border: 1px solid rgba(255,255,255,.1); color: #dff7ff; font: 11px/1.45 Consolas, monospace; white-space: pre-wrap; }
+        .eu-inline-profile-feed {
+            grid-column: 1 / -1;
+            flex: 0 0 100%;
+            width: 100%;
+            clear: both;
+            margin: 8px 0 16px;
+            padding: 10px;
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(17,18,28,.94), rgba(7,8,12,.94));
+            border: 1px solid rgba(255,255,255,.12);
+            box-shadow: 0 14px 34px rgba(0,0,0,.28), inset 0 0 0 1px rgba(155,108,255,.08);
+            color: #fff;
+        }
+        .eu-inline-profile-feed.eu-inline-loading,
+        .eu-inline-profile-feed.eu-inline-empty {
+            min-height: 58px;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            color: var(--eu-muted);
+            font-size: 12px;
+            font-weight: 900;
+        }
+        .eu-inline-profile-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 9px;
+            color: rgba(255,255,255,.9);
+            font-size: 12px;
+            font-weight: 950;
+        }
+        .eu-inline-profile-head a { color: #fff !important; text-decoration: none !important; }
+        .eu-inline-media-row {
+            display: grid;
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(118px, 18vw);
+            gap: 8px;
+            overflow-x: auto;
+            overscroll-behavior-x: contain;
+            scroll-snap-type: x proximity;
+            padding-bottom: 2px;
+            scrollbar-width: thin;
+        }
+        .eu-inline-media-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            background: #02030a;
+            aspect-ratio: 9 / 16;
+            scroll-snap-align: start;
+            border: 1px solid rgba(255,255,255,.1);
+        }
+        .eu-inline-media-card img,
+        .eu-inline-media-card video {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            background: #000;
+        }
+        .eu-inline-kind {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            z-index: 2;
+            padding: 3px 6px;
+            border-radius: 999px;
+            background: rgba(0,0,0,.72);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,.18);
+            font-size: 10px;
+            font-weight: 950;
+            text-transform: uppercase;
+        }
         .eu-progress { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.09); margin: 12px 0 8px; }
         .eu-progress span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--eu-accent), var(--eu-accent2)); transition: width .18s ease; }
         #eu-toast-wrap { position: fixed; right: 18px; bottom: 148px; z-index: 110000; display: grid; gap: 9px; pointer-events: none; }
@@ -751,6 +833,7 @@
             .eu-phone { width: 100vw; height: 100vh; border-radius: 0; border: 0; }
             .eu-feed-tabs .eu-pill:nth-child(n+5) { display: none; }
             .eu-caption { right: 76px; }
+            .eu-inline-media-row { grid-auto-columns: minmax(104px, 38vw); }
         }
         `);
     }
@@ -766,7 +849,7 @@
 
     function isEromeUltimateNode(node) {
         const el = node?.nodeType === 1 ? node : node?.parentElement;
-        return !!el?.closest?.('#eu-feed, .eu-modal, #eu-toast-wrap, .eu-fab, .eu-dl-btn, .eu-chip, .eu-sort-bar, .eu-page-separator, .eu-like-display, .eu-duration-badge, .eu-watched-overlay, .eu-watched-badge, .eu-deleted-overlay, .eu-meta-loader');
+        return !!el?.closest?.('#eu-feed, .eu-modal, #eu-toast-wrap, .eu-fab, .eu-dl-btn, .eu-chip, .eu-sort-bar, .eu-page-separator, .eu-like-display, .eu-duration-badge, .eu-watched-overlay, .eu-watched-badge, .eu-deleted-overlay, .eu-meta-loader, .eu-inline-profile-feed');
     }
 
     function scheduleRefresh(reason = 'mutation') {
@@ -788,6 +871,7 @@
         attachDownloadButtons();
         decorateAlbums();
         decorateMediaDurations();
+        processProfileInlineFeed();
         if (typeof enhancer !== 'undefined') enhancer.process(document, { lazyMeta: true });
         applyFilters();
         updateFabCount();
@@ -825,13 +909,17 @@
 
     function collectMediaUrls(root = document) {
         const urls = new Set();
-        $$('.media-group img, img.media, .album-image img', root).forEach(img => {
+        $$('.media-group img, img.media, .album-image img, .post img, .post-body img, .post-thumbs img', root).forEach(img => {
             const src = img.currentSrc || img.src || img.dataset?.src || img.getAttribute('data-src') || img.getAttribute('data-original');
-            if (src && !/avatar|logo|favicon/i.test(src)) urls.add(normalizeUrl(src));
+            if (src && !/avatar|logo|favicon|istorage|^blob:|tscprts|stripchat|chaturbate|livejasmin|\/ads?\/|[?&]ad/i.test(src)) urls.add(normalizeUrl(src));
         });
         $$('.media-group video, .video-js video, video, video source, source', root).forEach(v => {
             const src = v.currentSrc || v.src || v.dataset?.src || v.getAttribute('src') || v.getAttribute('data-src');
             if (src) urls.add(normalizeUrl(src));
+        });
+        const html = root.documentElement?.innerHTML || root.innerHTML || '';
+        html.match(/https?:\/\/[^"'<>\\\s]+?\.(?:mp4|webm|m3u8|jpe?g|png|gif|webp)(?:\?[^"'<>\\\s]*)?/gi)?.forEach(url => {
+            if (!/avatar|logo|favicon|istorage|^blob:|tscprts|stripchat|chaturbate|livejasmin|\/ads?\/|[?&]ad/i.test(url)) urls.add(normalizeUrl(url));
         });
         return Array.from(urls).filter(Boolean);
     }
@@ -860,14 +948,14 @@
     }
 
     function albumUrl(album, base = location.href) {
-        const a = $('a.album-link[href*="/a/"], a[href*="/a/"]', album);
+        const a = $('a.album-link[href*="/a/"], a[href*="/post/"], a[href*="/a/"]', album);
         return normalizeUrl(a?.getAttribute('href') || a?.href || '', base);
     }
 
     function decorateAlbums() {
         if (isAlbumPage) markSeen(location.href);
-        $$('.album').forEach(album => {
-            const thumb = $('.album-thumbnail-container', album) || album;
+        $$('.album, .post').forEach(album => {
+            const thumb = $('.album-thumbnail-container, .post-thumbs, figure', album) || album;
             const url = albumUrl(album);
             if (!$('.eu-chip-count', thumb)) {
                 const images = ($('.album-images', album)?.textContent || '').match(/\d+/)?.[0];
@@ -892,7 +980,7 @@
 
     function applyFilters() {
         const q = settings.search.trim().toLowerCase();
-        $$('.album').forEach(album => {
+        $$('.album, .post').forEach(album => {
             const url = albumUrl(album);
             const isSeen = url && tracking.seenAlbums.has(url);
             const isDownloaded = url && tracking.downloadedAlbums.has(url);
@@ -963,7 +1051,7 @@
             btn.innerHTML = '<span>Saving...</span>';
         }
         try {
-            const blob = await getBlobRetry(url, settings.performanceMode === 'max' ? 3 : 2);
+            const blob = await getBlobRetry(url, settings.performanceMode === 'max' ? 1 : 3);
             const tmp = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = tmp;
@@ -1022,11 +1110,136 @@
         el.style.display = count ? 'grid' : 'none';
     }
 
+    const profileInline = {
+        io: null,
+        observed: new WeakSet(),
+        loading: new Set(),
+        loaded: new Set()
+    };
+
+    function isProfileListingPage() {
+        if (isAlbumPage) return false;
+        const parts = location.pathname.split('/').filter(Boolean);
+        const firstPath = parts[0] || '';
+        if (!firstPath || ['explore', 'search', 'users', 'user', 'login', 'signup'].includes(firstPath)) return false;
+        if (isXxxErome && firstPath === 'a') return $$('.post').length > 0;
+        return $$('.album, .post').length > 0;
+    }
+
+    function ensureProfileInlineObserver() {
+        if (profileInline.io) return profileInline.io;
+        profileInline.io = new IntersectionObserver(entries => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting || entry.intersectionRatio > .12) loadInlineAlbumPreview(entry.target);
+            });
+        }, { root: null, rootMargin: '700px 0px', threshold: [.12] });
+        return profileInline.io;
+    }
+
+    function processProfileInlineFeed() {
+        if (!settings.profileInlineFeed || !isProfileListingPage()) return;
+        const io = ensureProfileInlineObserver();
+        $$('.album, .post').forEach(album => {
+            const url = albumUrl(album);
+            if (!url || profileInline.observed.has(album)) return;
+            profileInline.observed.add(album);
+            album.dataset.euInlineUrl = url;
+            io.observe(album);
+        });
+    }
+
+    function inlinePanelAfterAlbum(album) {
+        let panel = album.nextElementSibling?.classList?.contains('eu-inline-profile-feed') ? album.nextElementSibling : null;
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.className = 'eu-inline-profile-feed eu-inline-loading eu-shell';
+            panel.innerHTML = '<span class="eu-spinner"></span><span>Loading next-level profile feed...</span>';
+            album.insertAdjacentElement('afterend', panel);
+        }
+        return panel;
+    }
+
+    function collectInlineAlbumMedia(doc, albumPageUrl, limit = settings.profileInlineLimit || 8) {
+        const seen = new Set();
+        const items = [];
+        const add = (kind, raw) => {
+            const url = normalizeUrl(raw, albumPageUrl);
+            if (!url || seen.has(url) || /thumb|avatar|logo|favicon|istorage|^blob:|tscprts|stripchat|chaturbate|livejasmin|\/ads?\/|[?&]ad/i.test(url)) return;
+            seen.add(url);
+            items.push({ kind, url });
+        };
+        $$('.media-group video, .video-js video, video, source', doc).forEach(v => add('video', v.currentSrc || v.src || v.getAttribute('src') || v.dataset?.src));
+        $$('.media-group img, img.media, .album-image img, .post-body img, .post-thumbs img', doc).forEach(img => add('image', img.currentSrc || img.src || img.getAttribute('src') || img.dataset?.src || img.getAttribute('data-src')));
+        const html = doc.documentElement?.innerHTML || '';
+        html.match(/https?:\/\/[^"'<>\\\s]+?\.(?:mp4|webm|m3u8)(?:\?[^"'<>\\\s]*)?/gi)?.forEach(url => add('video', url));
+        return items.slice(0, Math.max(1, Number(limit) || 8));
+    }
+
+    function renderInlineAlbumPreview(album, albumPageUrl, doc, items) {
+        const panel = inlinePanelAfterAlbum(album);
+        const title = pageTitle(doc);
+        if (!items.length) {
+            panel.className = 'eu-inline-profile-feed eu-inline-empty eu-shell';
+            panel.textContent = 'No preview media found in this album.';
+            return;
+        }
+        panel.className = 'eu-inline-profile-feed eu-shell';
+        panel.innerHTML = `
+            <div class="eu-inline-profile-head">
+                <span>${htmlEscape(title)}</span>
+                <a href="${htmlEscape(albumPageUrl)}" target="_blank" rel="noopener">Open album</a>
+            </div>
+            <div class="eu-inline-media-row">
+                ${items.map(item => `
+                    <div class="eu-inline-media-card">
+                        ${item.kind === 'video'
+                            ? `<video src="${htmlEscape(item.url)}" muted loop playsinline preload="metadata"></video>`
+                            : `<img src="${htmlEscape(item.url)}" alt="" loading="lazy">`}
+                        <span class="eu-inline-kind">${item.kind === 'video' ? 'video' : 'photo'}</span>
+                    </div>`).join('')}
+            </div>`;
+        $$('.eu-inline-media-card video', panel).forEach(video => {
+            video.addEventListener('mouseenter', () => video.play().catch(() => {}));
+            video.addEventListener('mouseleave', () => { video.pause(); video.currentTime = 0; });
+            video.addEventListener('touchstart', () => video.paused ? video.play().catch(() => {}) : video.pause(), { passive: true });
+        });
+    }
+
+    async function loadInlineAlbumPreview(album) {
+        const albumPageUrl = album?.dataset?.euInlineUrl || albumUrl(album);
+        if (!album || !albumPageUrl || profileInline.loaded.has(albumPageUrl) || profileInline.loading.has(albumPageUrl)) return;
+        profileInline.loading.add(albumPageUrl);
+        const panel = inlinePanelAfterAlbum(album);
+        try {
+            const res = await fetch(albumPageUrl, { credentials: 'include' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+            const items = collectInlineAlbumMedia(doc, albumPageUrl);
+            renderInlineAlbumPreview(album, albumPageUrl, doc, items);
+            profileInline.loaded.add(albumPageUrl);
+            if (profileInline.loaded.size > 400) {
+                const oldest = profileInline.loaded.values().next().value;
+                profileInline.loaded.delete(oldest);
+            }
+        } catch (err) {
+            panel.className = 'eu-inline-profile-feed eu-inline-empty eu-shell';
+            panel.textContent = `Preview failed: ${err.message || err}`;
+            console.warn('[EU] inline profile preview failed', err);
+        } finally {
+            profileInline.loading.delete(albumPageUrl);
+        }
+    }
+
     function currentProfileName(doc = document) {
+        const parts = location.pathname.split('/').filter(Boolean);
+        if (isXxxErome && parts.length >= 4 && (parts[0] === 'post' || parts[0] === 'a')) {
+            return sanitize(parts[parts.length - 1]);
+        }
         const explicit = $('#user_name, .user-name, .username, .profile-name, [itemprop="name"]', doc)?.textContent;
         if (explicit && explicit.trim()) return sanitize(explicit);
-        const fromPath = location.pathname.split('/').filter(Boolean)[0];
-        if (fromPath && fromPath !== 'a' && fromPath !== 'explore' && fromPath !== 'search') return sanitize(fromPath);
+        const fromPath = parts[0];
+        const RESERVED = new Set(['a', 'post', 'explore', 'search', 'users', 'user', 'login', 'signup']);
+        if (fromPath && !RESERVED.has(fromPath)) return sanitize(fromPath);
         const title = (doc.title || '').split(' - ')[0];
         return sanitize(title || 'Erome');
     }
@@ -1043,7 +1256,12 @@
     function albumCardData(album, base = location.href) {
         const link = albumUrl(album, base);
         const thumb = $('img', album);
-        const title = $('.album-title', album)?.textContent || $('a[href*="/a/"]', album)?.textContent || album.textContent || 'Album';
+        const title = $('.album-title, .post-title, h2, h3', album)?.textContent
+            || $('a[href*="/post/"], a[href*="/a/"]', album)?.getAttribute('title')
+            || $('a[href*="/post/"], a[href*="/a/"]', album)?.textContent
+            || thumb?.getAttribute('alt')
+            || album.textContent
+            || 'Album';
         const counts = {
             images: ($('.album-images', album)?.textContent || '').match(/\d[\d,.]*/)?.[0] || '',
             videos: ($('.album-videos', album)?.textContent || '').match(/\d[\d,.]*/)?.[0] || ''
@@ -1074,7 +1292,7 @@
     }
 
     function currentProfileApiShape() {
-        const albums = $$('.album').map(album => albumCardData(album)).filter(album => album.url);
+        const albums = $$('.album, .post').map(album => albumCardData(album)).filter(album => album.url);
         return {
             username: currentProfileName(),
             url: normalizeUrl(location.href),
@@ -1357,7 +1575,7 @@
                     progress.style.width = `${(i / items.length) * 100}%`;
                     line.textContent = `Downloading ${i + 1}/${items.length}: ${name}`;
                     try {
-                        const blob = await getBlobRetry(item.url, settings.performanceMode === 'max' ? 3 : 2);
+                        const blob = await getBlobRetry(item.url, settings.performanceMode === 'max' ? 1 : 3);
                         zip.file(path, await blob.arrayBuffer());
                         markDownloaded(item.url, item.albumUrl);
                         ok++;
@@ -1477,6 +1695,12 @@
             }
         }, { passive: false });
         document.addEventListener('keydown', feedKeys);
+        document.addEventListener('fullscreenchange', () => {
+            const fs = document.fullscreenElement;
+            $$('#eu-feed .eu-feed-item.video-container').forEach(card => {
+                card.classList.toggle('full-screen', card === fs);
+            });
+        });
     }
 
     function debounce(fn, ms) {
@@ -1494,8 +1718,6 @@
     const SCROLL_LOCK_CLASSES = [SCROLL_LOCK_CLASS, 'modal-open', 'overflow-hidden', 'no-scroll', 'noscroll', 'lock-scroll', 'scroll-lock', 'tiktok-mode', 'erome-tiktok-mode', 'feed-mode'];
     const SCROLL_KEYS = new Set([' ', 'Spacebar', 'PageDown', 'PageUp', 'Home', 'End', 'ArrowDown', 'ArrowUp']);
     const FEED_CONTAINER_SELECTORS = '#eu-feed, #eu-feed-scroll, .eu-feed-scroll, #eu-tiktok, #eu-tiktok-feed, .eu-tiktok-overlay, .eu-tiktok-feed';
-    const nativePreventDefault = Event.prototype.preventDefault;
-    let preventDefaultShimInstalled = false;
 
     function getScrollTop() {
         const se = document.scrollingElement || document.documentElement || document.body;
@@ -1543,27 +1765,6 @@
         const shouldForce = !positiveFeedOverlayOpen() && !visibleNonEuDialogOpen();
         body.classList.toggle(SCROLL_FORCE_CLASS, shouldForce);
         html.classList.toggle(SCROLL_FORCE_CLASS, shouldForce);
-    }
-
-    function isEditableTarget(target) {
-        return Boolean(target instanceof Element && target.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]'));
-    }
-
-    function shouldIgnoreScrollPreventDefault(event) {
-        if (positiveFeedOverlayOpen() || visibleNonEuDialogOpen()) return false;
-        const target = event.target;
-        if (target instanceof Element && target.closest(FEED_CONTAINER_SELECTORS)) return false;
-        if (event.type === 'wheel' || event.type === 'mousewheel' || event.type === 'touchmove') return true;
-        return event.type === 'keydown' && event instanceof KeyboardEvent && SCROLL_KEYS.has(event.key) && !isEditableTarget(target);
-    }
-
-    function installScrollPreventDefaultShim() {
-        if (preventDefaultShimInstalled) return;
-        preventDefaultShimInstalled = true;
-        Event.prototype.preventDefault = function euPatchedPreventDefault() {
-            if (shouldIgnoreScrollPreventDefault(this)) return;
-            return nativePreventDefault.call(this);
-        };
     }
 
     function clearStuckScrollStyles() {
@@ -1841,10 +2042,12 @@
     }
 
     function getAlbumMeta(doc, url) {
+        const parts = new URL(url, location.href).pathname.split('/').filter(Boolean);
+        const pathUser = (isXxxErome && parts.length >= 4 && (parts[0] === 'post' || parts[0] === 'a')) ? parts[parts.length - 1] : '';
         return {
             albumUrl: normalizeUrl(url),
             title: pageTitle(doc),
-            username: sanitize($('#user_name, .username, .user-name', doc)?.textContent || 'Erome')
+            username: sanitize($('#user_name, .username, .user-name', doc)?.textContent || pathUser || 'Erome')
         };
     }
     function extractMedia(doc, albumPageUrl) {
@@ -1852,26 +2055,27 @@
         const results = [];
         const add = (kind, raw) => {
             const url = normalizeUrl(raw, albumPageUrl);
-            if (!url || feed.itemUrls.has(url) || /thumb|avatar|logo|favicon/i.test(url)) return;
+            if (!url || feed.itemUrls.has(url) || /thumb|avatar|logo|favicon|istorage|^blob:|tscprts|stripchat|chaturbate|livejasmin|\/ads?\/|[?&]ad/i.test(url)) return;
             if (settings.feedType === 'videos' && kind !== 'video') return;
             if (settings.feedType === 'images' && kind !== 'image') return;
             feed.itemUrls.add(url);
             results.push({ kind, url, ...meta });
         };
         $$('.media-group video, .video-js video, video, source', doc).forEach(v => add('video', v.currentSrc || v.src || v.getAttribute('src') || v.dataset?.src));
-        $$('.media-group img, img.media, .album-image img', doc).forEach(img => add('image', img.currentSrc || img.src || img.getAttribute('src') || img.dataset?.src || img.getAttribute('data-src')));
+        $$('.media-group img, img.media, .album-image img, .post-body img, .post-thumbs img', doc).forEach(img => add('image', img.currentSrc || img.src || img.getAttribute('src') || img.dataset?.src || img.getAttribute('data-src')));
         const html = doc.documentElement?.innerHTML || '';
         html.match(/https?:\/\/[^"'<>\\\s]+?\.(?:mp4|webm|m3u8)(?:\?[^"'<>\\\s]*)?/gi)?.forEach(url => add('video', url));
+        html.match(/https?:\/\/[^"'<>\\\s]+?\.(?:jpe?g|png|gif|webp)(?:\?[^"'<>\\\s]*)?/gi)?.forEach(url => add('image', url));
         return results;
     }
     function queueAlbumsFromDoc(doc, base, source) {
         if (!isAlbumPage && source === 'album' && settings.lockListingFeed) return 0;
         if (isAlbumPage && source === 'album' && !settings.loadRelatedAlbums) return 0;
         const before = feed.albumQueue.length;
-        const cards = $$('#albums .album, .albums .album, .user-albums .album, .page-content .album', doc);
+        const cards = $$('#albums .album, .albums .album, .user-albums .album, .page-content .album, .posts-list .post, .model-posts .post, .page-content .post', doc);
         const links = cards.length
             ? cards.map(card => albumUrl(card, base)).filter(Boolean)
-            : (source === 'album' ? $$('a[href*="/a/"]', doc).map(a => normalizeUrl(a.getAttribute('href'), base)) : []);
+            : (source === 'album' ? $$('a[href*="/post/"], a[href*="/a/"]', doc).map(a => normalizeUrl(a.getAttribute('href'), base)) : []);
         const q = settings.search.trim().toLowerCase();
         links.forEach(url => {
             if (!url || feed.albumSeen.has(url) || feed.albumQueue.includes(url)) return;
@@ -2059,9 +2263,6 @@
                 saveSettings();
                 updateVolumeLevel(card, video);
             });
-            document.addEventListener('fullscreenchange', () => {
-                card.classList.toggle('full-screen', document.fullscreenElement === card);
-            });
             installTimelineScrub(card, video, timelineContainer, timeline);
             card.addEventListener('click', e => {
                 if (e.target.closest('a,button')) return;
@@ -2103,15 +2304,19 @@
             video.pause();
             seek(event);
             const onMove = moveEvent => seek(moveEvent);
-            const onUp = upEvent => {
-                seek(upEvent);
+            const cleanup = (finalEvent, resume) => {
+                if (finalEvent) seek(finalEvent);
                 card.classList.remove('scrubbing');
                 document.removeEventListener('pointermove', onMove);
                 document.removeEventListener('pointerup', onUp);
-                if (!wasPaused) video.play().catch(() => {});
+                document.removeEventListener('pointercancel', onCancel);
+                if (resume && !wasPaused) video.play().catch(() => {});
             };
+            const onUp = upEvent => cleanup(upEvent, true);
+            const onCancel = () => cleanup(null, true);
             document.addEventListener('pointermove', onMove);
             document.addEventListener('pointerup', onUp, { once: true });
+            document.addEventListener('pointercancel', onCancel, { once: true });
         });
     }
     function applyVideoPrefs(video) {
@@ -2214,8 +2419,8 @@
             waiters: []
         };
 
-        const albumSelector = '.album';
-        const containerSelector = '#albums, .albums, .user-albums, .page-content';
+        const albumSelector = '.album, .post';
+        const containerSelector = '#albums, .albums, .user-albums, .posts-list, .model-posts, .page-content';
 
         function saveViewed() {
             saveJSON('enhancerViewedAlbums', Array.from(viewed).filter(Boolean).slice(-7500));
@@ -2484,10 +2689,20 @@
 
         async function fetchAlbumDoc(url) {
             let delay = 900;
+            let lastStatus = 0;
             for (let attempt = 0; attempt < 4; attempt++) {
-                const res = await fetch(url, { credentials: 'include' });
+                let res;
+                try {
+                    res = await fetch(url, { credentials: 'include' });
+                } catch (err) {
+                    if (attempt === 3) throw err;
+                    await sleep(delay);
+                    delay *= 2;
+                    continue;
+                }
+                lastStatus = res.status;
                 if (res.status === 404 || res.status === 410) throw new Error('ALBUM_DELETED');
-                if (res.status === 429) {
+                if (res.status === 429 || (res.status >= 500 && res.status < 600)) {
                     await sleep(delay);
                     delay *= 2;
                     continue;
@@ -2495,7 +2710,7 @@
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 return new DOMParser().parseFromString(await res.text(), 'text/html');
             }
-            throw new Error('Rate limited');
+            throw new Error(lastStatus === 429 ? 'Rate limited' : `HTTP ${lastStatus || 'fetch failed'}`);
         }
 
         function parseLikeCount(doc) {
@@ -2699,12 +2914,12 @@
 
     function installInfiniteScroll() {
         if (isAlbumPage || settings.enhancerAutoLoad === false) return;
-        const container = $('#albums, .user-albums, .albums, .page-content');
+        const container = $('#albums, .user-albums, .albums, .posts-list, .model-posts, .page-content');
         if (!container || !$('.pagination')) return;
         let page = Number(new URL(location.href).searchParams.get('page') || 1) + 1;
         let busy = false;
         let stopped = false;
-        const known = new Set($$('.album').map(album => albumUrl(album)).filter(Boolean));
+        const known = new Set($$('.album, .post').map(album => albumUrl(album)).filter(Boolean));
         async function loadMore() {
             if (busy || stopped) return;
             busy = true;
@@ -2717,7 +2932,7 @@
                 let added = 0;
                 const frag = document.createDocumentFragment();
                 const pageAlbums = [];
-                $$('.album', doc).forEach(album => {
+                $$('.album, .post', doc).forEach(album => {
                     const urlKey = albumUrl(album, url.href);
                     if (!urlKey || known.has(urlKey)) return;
                     known.add(urlKey);
@@ -2750,7 +2965,6 @@
 
     function init() {
         console.log(`[${APP.name}] ${APP.version} booting`);
-        installScrollPreventDefaultShim();
         installBlockers();
         bypassDialogs();
         buildFab();
@@ -2759,7 +2973,7 @@
         refreshAll();
         installInfiniteScroll();
         repairPageScrollLock();
-        window.addEventListener('pageshow', repairPageScrollLock);
+        window.addEventListener('pageshow', () => { bypassDialogs(); repairPageScrollLock(); });
         document.addEventListener('visibilitychange', repairPageScrollLock);
         ['wheel', 'touchmove', 'pointerdown'].forEach(type => {
             window.addEventListener(type, () => {
@@ -2788,6 +3002,7 @@
             openFeed,
             openDownloadModal,
             openApiProfileBrowser,
+            processProfileInlineFeed,
             collectMediaUrls,
             downloadSingle,
             repairScroll: repairPageScrollLock,
